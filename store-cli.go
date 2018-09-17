@@ -1,16 +1,14 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
-	"os/exec"
-	"os/user"
-	"regexp"
 	"runtime/debug"
-	"sort"
+	"time"
 	"strings"
 
 	"github.com/urfave/cli"
@@ -18,13 +16,6 @@ import (
 
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
-
-// habDepotURL is base url for public depot of habitat
-const habDepotURL = "https://willem.habitat.sh/v1/depot"
-
-var habPath = "/opt/sd/bin/hab"
-var versionValidator = regexp.MustCompile(`^\d+(\.\d+)*$`)
-var execCommand = exec.Command
 
 // successExit exits process with 0
 func successExit() {
@@ -48,6 +39,109 @@ func finalRecover() {
 		failureExit(nil)
 	}
 	successExit()
+}
+
+// makeURL creates the fully-qualified url for a given Store path
+func makeURL(requestType, key, val, scope, storeType string) (*url.URL, error) {
+	storeUrl := os.Getenv("SD_STORE_URL")
+	version := "v4"
+	fullpath := fmt.Sprintf("%s/%s/%s", a.baseURL, version, path)
+
+
+	u, err := url.Parse(fullUrl)
+	if err != nil {
+		return nil, fmt.Errorf("bad url %s: %v", s.url, err)
+	}
+	version := "v1"
+	path := "builds/"
+	if storeType == "cache" {
+		path = "caches/"
+	}
+	switch scope {
+	case "events":
+		path += "events/" + os.Getenv("SD_EVENT_ID") + "/" + key
+	case "builds":
+		path += os.Getenv("SD_BUILD_ID") + "-" + key
+	}
+
+	u.Path = path.Join(version, u.Path, "builds", s.buildID, storePath)
+
+	return url.Parse(fullpath)
+}
+
+func tokenHeader(token string) string {
+	return fmt.Sprintf("Bearer %s", token)
+}
+
+// handleResponse attempts to parse error objects from Screwdriver
+func handleResponse(res *http.Response) ([]byte, error) {
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
+	}
+
+	if res.StatusCode/100 != 2 {
+		return nil, fmt.Errorf("HTTP %d returned: %s", res.StatusCode, body)
+	}
+	return body, nil
+}
+
+
+func get(storeType, scope, key string, output io.Writer) (error) {
+	sdToken := os.Getenv("SD_TOKEN")
+	fullURL, err := makeURL("get", key, "", scope, storeType)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("GET", fullURL.String(), strings.NewReader(""))
+		if err != nil {
+			return fmt.Errorf("Failed to create request about command to Store API: %v", err)
+		}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sdToken))
+	var client = &http.Client{
+		Timeout: time.Second * 10,
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("Failed to get command from Store API: %v", err)
+	}
+	defer res.Body.Close()
+	body, err := handleResponse(res)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func set(storeType, scope, key, val string) ([]byte, error) {
+	fullURL, err := makeURL("put", key, val, scope, storeType)
+	if err != nil {
+		return nil, err
+	}
+
+	sdToken := os.Getenv("SD_TOKEN")
+	req, reqErr := http.NewRequest("PUT", fullURL.String(), strings.NewReader(""))
+	if reqErr != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", tokenHeader(sdToken))
+	// req.Header.Set("Content-Type", bodyType)
+	// req.ContentLength = size
+	var client = &http.Client{
+  	Timeout: time.Second * 10,
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode/100 == 5 {
+		return nil, fmt.Errorf("response code %d", res.StatusCode)
+	}
+
+	defer res.Body.Close()
+	return handleResponse(res)
 }
 
 func main() {
@@ -82,8 +176,10 @@ func main() {
   				if len(c.Args()) == 0 {
   					return cli.ShowAppHelp(c)
   				}
+					scope := c.String("scope")
+					storeType := c.String("type")
   				key := c.Args().Get(0)
-  				err := get(key, os.Stdout)
+  				err := get(storeType, scope, key, os.Stdout)
   				if err != nil {
   					failureExit(err)
   				}
@@ -99,9 +195,11 @@ func main() {
   				if len(c.Args()) <= 1 {
   					return cli.ShowAppHelp(c)
   				}
+					scope := c.String("scope")
+					storeType := c.String("type")
   				key := c.Args().Get(0)
   				val := c.Args().Get(1)
-  				err := set(key, val)
+  				response, err := set(storeType, scope, key, val)
   				if err != nil {
   					failureExit(err)
   				}
