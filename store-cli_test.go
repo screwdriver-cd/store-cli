@@ -2,186 +2,743 @@ package main
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
+	"io/ioutil"
 	"os"
-	"os/exec"
-	"reflect"
-	"strings"
 	"testing"
 )
 
-func fakeExecCommand(command string, args ...string) *exec.Cmd {
-	cs := []string{"-test.run=TestHelperProcess", "--", command}
-	cs = append(cs, args...)
-	cmd := exec.Command(os.Args[0], cs...)
-	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
-	return cmd
-}
-
-const habExecResult = "run hab pkg install\nrun hab pkg exec\n"
-
-func TestRunCommand(t *testing.T) {
-	execCommand = fakeExecCommand
-	defer func() { execCommand = exec.Command }()
-
-	stdout := new(bytes.Buffer)
-	err := runCommand("sudo hab pkg install foo/bar", stdout)
-	expected := "run hab pkg install\n"
-	if err != nil {
-		t.Errorf("runCommand error = %q, should be nil", err)
-	}
-	if string(stdout.Bytes()) != expected {
-		t.Errorf("Expected '%v', actual '%v'", expected, string(stdout.Bytes()))
-	}
-
-	stdout = new(bytes.Buffer)
-	err = runCommand("hab pkg exec foo/bar foo bar foobar", stdout)
-	expected = "run hab pkg exec\n"
-	if err != nil {
-		t.Errorf("runCommand error = %v, should be nil", err)
-	}
-	if string(stdout.Bytes()) != expected {
-		t.Errorf("Expected '%v', actual '%v'", expected, string(stdout.Bytes()))
-	}
-}
-
-func TestExecHab(t *testing.T) {
-	stdout := new(bytes.Buffer)
-	execCommand = fakeExecCommand
-	defer func() { execCommand = exec.Command }()
-	err := execHab("foo/bar", "2.2.2", "stable", []string{"foo", "bar", "foobar"}, stdout)
-	if err != nil {
-		t.Errorf("execHab error = %q, should be nil", err)
-	}
-	if string(stdout.Bytes()) != habExecResult {
-		t.Errorf("Expected %q, got %q", habExecResult, string(stdout.Bytes()))
-	}
-}
+const testFile = "meta"
+const testDir = "./_test"
+const testFilePath = testDir + "/" + testFile + ".json"
+const mockDir = "./mock"
+const externalFile = "sd@123:component"
+const externalFilePath = testDir + "/" + externalFile + ".json"
+const doesNotExistFile = "woof"
 
 func TestMain(m *testing.M) {
+	// setup functions
+	setupDir(testDir, testFile)
+	// run test
 	retCode := m.Run()
+	// teardown functions
+	os.RemoveAll(testDir)
 	os.Exit(retCode)
 }
 
-func TestHelperProcess(t *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
-		return
-	}
-	defer os.Exit(0)
-	args := os.Args[:]
-	for i, val := range os.Args {
-		args = os.Args[i:]
-		if val == "-c" {
-			args = strings.Split(args[1:][0], " ")
-			break
-		}
+func TestSetupDir(t *testing.T) {
+	var err error
+	var data []byte
+
+	os.RemoveAll(testDir)
+
+	setupDir(testDir, testFile)
+	_, err = os.Stat(testFilePath)
+	if err != nil {
+		t.Errorf("could not create %s in %s", testFilePath, testDir)
 	}
 
-	if len(args) >= 4 {
-		if args[0] == "sudo" && args[3] == "install" ||
-			args[0] != "sudo" && args[2] == "install" {
-			fmt.Println("run hab pkg install")
-			return
-		} else if args[2] == "exec" {
-			fmt.Println("run hab pkg exec")
-			return
-		} else {
-			os.Exit(255)
-		}
+	data, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Errorf("could not read %s in %s", testFilePath, testDir)
 	}
-	os.Exit(255)
+	if string(data[:]) != "{}"  {
+		t.Errorf("%s does not have an empty JSON object: %v", testFilePath, string(data[:]))
+	}
 }
 
-type depotMock struct {
-	versions []string
-	err      error
-}
+func TestExternalMetaFile(t *testing.T) {
+	setupDir(testDir, externalFile)
+	os.Remove(externalFilePath)
 
-func (depo *depotMock) PackageVersionsFromName(pkgName string, habChannel string) ([]string, error) {
-	if depo.err != nil {
-		return nil, depo.err
-	}
-	return depo.versions, nil
-}
-
-func TestGetPackageVersions(t *testing.T) {
-	tests := []struct {
-		versionExpression string
-		foundVersions     []string
-		expectedVersion   string
-		depotError        error
-		expectedError     error
-	}{
-		{
-			versionExpression: "1.0.0",
-			foundVersions:     []string{"0.0.1", "0.1.0", "1.0.0", "2.0.0"},
-			expectedVersion:   "1.0.0",
-			depotError:        nil,
-			expectedError:     nil,
-		},
-		{
-			versionExpression: "^1.2.0",
-			foundVersions:     []string{"0.0.1", "0.1.0", "1.1.9", "1.2.1", "1.2.2", "1.3.0", "2.0.0"},
-			expectedVersion:   "1.3.0",
-			depotError:        nil,
-			expectedError:     nil,
-		},
-		{
-			versionExpression: "~1.2.0",
-			foundVersions:     []string{"0.0.1", "0.1.0", "1.1.9", "1.2.1", "1.2.2", "1.3.0", "2.0.0"},
-			expectedVersion:   "1.2.2",
-			depotError:        nil,
-			expectedError:     nil,
-		},
-		{
-			versionExpression: "",
-			foundVersions:     []string{"0.0.1", "0.1.0", "1.1.9", "1.2.1", "1.2.2", "1.3.0", "2.0.0"},
-			expectedVersion:   "",
-			depotError:        nil,
-			expectedError:     nil,
-		},
-		{
-			versionExpression: "1.0.0",
-			foundVersions:     []string{"0.0.1", "0.1.0", "1.1.9", "1.2.1", "1.2.2", "1.3.0", "2.0.0"},
-			expectedVersion:   "",
-			depotError:        errors.New("depot error"),
-			expectedError:     errors.New("The specified version not found"),
-		},
-		{
-			versionExpression: "~1.2.0",
-			foundVersions:     []string{"0.0.1", "0.1.0", "1.1.9", "1.2.1", "1.2.2", "1.2.3-abc", "1.3.0", "2.0.0"},
-			expectedVersion:   "1.2.2",
-			depotError:        nil,
-			expectedError:     nil,
-		},
-		{
-			versionExpression: "1.2.0-beta",
-			foundVersions:     []string{"0.0.1", "0.1.0", "1.1.9", "1.2.1", "1.2.2", "1.2.3-abc", "1.3.0", "2.0.0"},
-			expectedVersion:   "",
-			depotError:        nil,
-			expectedError:     errors.New("The specified version not found"),
-		},
+	// Test set (meta file is not meta.json, should fail)
+	err := setMeta("str", "val", testDir, externalFile)
+	if err == nil {
+		t.Fatalf("error should be occured")
 	}
 
-	for _, test := range tests {
-		depot := &depotMock{test.foundVersions, test.depotError}
-		version, err := getPackageVersion(depot, "foo/test", test.versionExpression, "stable")
+	// Test get
+	stdout := new(bytes.Buffer)
+	getMeta("str", mockDir, externalFile, stdout)
+	expected := []byte("meow")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+}
 
-		if test.expectedError == nil && err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
+func TestGetMetaNoFile(t *testing.T) {
+	os.RemoveAll(testDir)
 
-		if test.expectedError != nil {
-			if reflect.TypeOf(err) != reflect.TypeOf(test.expectedError) {
-				t.Fatalf("Expected error type %v, actual %v", reflect.TypeOf(test.expectedError), reflect.TypeOf(err))
-			} else if err.Error() != test.expectedError.Error() {
-				t.Errorf("Expected Error \"%s\", actual \"%s\"", test.expectedError.Error(), err.Error())
-			}
-		} else {
-			if version != test.expectedVersion {
-				t.Errorf("Expected \"%s\", actual \"%s\"", test.expectedVersion, version)
-			}
-		}
+	stdout := new(bytes.Buffer)
+	getMeta("woof", testDir, doesNotExistFile, stdout)
+	expected := []byte("null")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+}
+
+func TestGetMeta(t *testing.T) {
+	stdout := new(bytes.Buffer)
+	getMeta("str", mockDir, testFile, stdout)
+	expected := []byte("fuga")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("bool", mockDir, testFile, stdout)
+	expected = []byte("true")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("int", mockDir, testFile, stdout)
+	expected = []byte("1234567")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("float", mockDir, testFile, stdout)
+	expected = []byte("1.5")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("foo.bar-baz", mockDir, testFile, stdout)
+	expected = []byte("dashed-key")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("obj", mockDir, testFile, stdout)
+	expected = []byte("{\"ccc\":\"ddd\",\"momo\":{\"toke\":\"toke\"}}")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("obj.ccc", mockDir, testFile, stdout)
+	expected = []byte("ddd")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("obj.momo", mockDir, testFile, stdout)
+	expected = []byte("{\"toke\":\"toke\"}")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("ary", mockDir, testFile, stdout)
+	expected = []byte("[\"aaa\",\"bbb\",{\"ccc\":{\"ddd\":[1234567,2,3]}}]")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("ary[0]", mockDir, testFile, stdout)
+	expected = []byte("aaa")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("ary[2]", mockDir, testFile, stdout)
+	expected = []byte("{\"ccc\":{\"ddd\":[1234567,2,3]}}")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("ary[2].ccc", mockDir, testFile, stdout)
+	expected = []byte("{\"ddd\":[1234567,2,3]}")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("ary[2].ccc.ddd", mockDir, testFile, stdout)
+	expected = []byte("[1234567,2,3]")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("ary[2].ccc.ddd[1]", mockDir, testFile, stdout)
+	expected = []byte("2")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	stdout = new(bytes.Buffer)
+	getMeta("nu", mockDir, testFile, stdout)
+	expected = []byte("null")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	// The key does not exist in meta.json
+	stdout = new(bytes.Buffer)
+	getMeta("notexist", mockDir, testFile, stdout)
+	expected = []byte("null")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	// It makes golang zero-value
+	stdout = new(bytes.Buffer)
+	getMeta("ary[]", mockDir, testFile, stdout)
+	expected = []byte("aaa")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+
+	// The key does not exist in meta.json
+	stdout = new(bytes.Buffer)
+	getMeta("ary.aaa.bbb.ccc.ddd[10]", mockDir, testFile, stdout)
+	expected = []byte("null")
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(stdout.Bytes()))
+	}
+}
+
+func TestSetMeta_bool(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("bool", "true", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"bool\":true}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestSetMeta_number(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("int", "10", testDir, testFile)
+	setMeta("float", "15.5", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"float\":15.5,\"int\":10}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestSetMeta_string(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("str", "val", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"str\":\"val\"}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestSetMeta_flexibleKey(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("foo-bar", "val", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"foo-bar\":\"val\"}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestSetMeta_array(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("array[]", "arg", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"array\":[\"arg\"]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestSetMeta_array_with_index(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("array[1]", "arg", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"array\":[null,\"arg\"]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("array[2]", "argarg", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"array\":[null,\"arg\",\"argarg\"]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestSetMeta_array_with_index_to_string(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("array[1]", "arg", testDir, testFile)
+	setMeta("array", "str", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"array\":\"str\"}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestSetMeta_object(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("foo.bar", "baz", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"foo\":{\"bar\":\"baz\"}}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo.barbar", "bazbaz", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":{\"bar\":\"baz\",\"barbar\":\"bazbaz\"}}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo.bar.baz", "piyo", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":{\"bar\":{\"baz\":\"piyo\"},\"barbar\":\"bazbaz\"}}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo.bar-baz", "dashed-key", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":{\"bar\":{\"baz\":\"piyo\"},\"bar-baz\":\"dashed-key\",\"barbar\":\"bazbaz\"}}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestSetMeta_object_to_string(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("foo.bar", "baz", testDir, testFile)
+	setMeta("foo", "baz", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"foo\":\"baz\"}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestSetMeta_array_with_object(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("foo[1].bar", "baz", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"foo\":[null,{\"bar\":\"baz\"}]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo.bar[1]", "baz", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":{\"bar\":[null,\"baz\"]}}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo[1].bar[1]", "baz", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":[null,{\"bar\":[null,\"baz\"]}]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo[0].bar[1]", "baz", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":[{\"bar\":[null,\"baz\"]},{\"bar\":[null,\"baz\"]}]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo[1].bar[0]", "ba", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":[{\"bar\":[null,\"baz\"]},{\"bar\":[\"ba\",\"baz\"]}]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo[1].bar[2]", "bazbaz", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":[{\"bar\":[null,\"baz\"]},{\"bar\":[\"ba\",\"baz\",\"bazbaz\"]}]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo[1].bar[3].baz[1]", "qux", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":[{\"bar\":[null,\"baz\"]},{\"bar\":[\"ba\",\"baz\",\"bazbaz\",{\"baz\":[null,\"qux\"]}]}]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo[1].bar[3].baz[0]", "quxqux", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":[{\"bar\":[null,\"baz\"]},{\"bar\":[\"ba\",\"baz\",\"bazbaz\",{\"baz\":[\"quxqux\",\"qux\"]}]}]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo[0].bar[3].baz[1]", "qux", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":[{\"bar\":[null,\"baz\",null,{\"baz\":[null,\"qux\"]}]},{\"bar\":[\"ba\",\"baz\",\"bazbaz\",{\"baz\":[\"quxqux\",\"qux\"]}]}]}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestSetMeta_object_with_array(t *testing.T) {
+	setupDir(testDir, testFile)
+	os.Remove(testFilePath)
+
+	setMeta("foo.bar[1]", "baz", testDir, testFile)
+	out, err := ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected := []byte("{\"foo\":{\"bar\":[null,\"baz\"]}}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo.bar[0]", "baz0", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":{\"bar\":[\"baz0\",\"baz\"]}}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+
+	setMeta("foo.barbar[2]", "bazbaz", testDir, testFile)
+	out, err = ioutil.ReadFile(testFilePath)
+	if err != nil {
+		t.Fatalf("Meta file did not create. error: %v", err)
+	}
+	expected = []byte("{\"foo\":{\"bar\":[\"baz0\",\"baz\"],\"barbar\":[null,null,\"bazbaz\"]}}")
+	if bytes.Compare(expected, out) != 0 {
+		t.Fatalf("not matched. expected '%v', actual '%v'", string(expected), string(out))
+	}
+}
+
+func TestValidateMetaKeyWithAccept(t *testing.T) {
+	testKey := "foo"
+	r := validateMetaKey(testKey)
+	if r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "f-o-o"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo[]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "f-o-o[]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo[0]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo[1]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo[10]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "a[10][20]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "a-b[10][20]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo.bar"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo[].bar"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo[1].bar"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo.bar[]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo.bar[1]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo[].bar[]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo[1].bar[1]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo.bar.baz"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo.bar-baz"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "f-o-o.bar--baz"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo[1].bar[2].baz[3]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "foo[1].bar-baz[2]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "f-o-o[1].bar--baz[2]"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+
+	testKey = "1.2.3"
+	if r = validateMetaKey(testKey); r == false {
+		t.Fatalf("'%v' is should be accepted", testKey)
+	}
+}
+
+func TestValidateMetaKeyWithReject(t *testing.T) {
+	testKey := "foo[["
+	r := validateMetaKey(testKey)
+	if r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+
+	testKey = "foo[]]"
+	if r = validateMetaKey(testKey); r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+
+	testKey = "foo[[]]"
+	if r = validateMetaKey(testKey); r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+
+	testKey = "foo[1e]"
+	if r = validateMetaKey(testKey); r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+
+	testKey = "foo[01]"
+	if r = validateMetaKey(testKey); r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+
+	testKey = "foo."
+	if r = validateMetaKey(testKey); r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+
+	testKey = "foo.[]"
+	if r = validateMetaKey(testKey); r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+
+	testKey = "-foo"
+	if r = validateMetaKey(testKey); r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+
+	testKey = "foo-[]"
+	if r = validateMetaKey(testKey); r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+
+	testKey = "foo.-bar"
+	if r = validateMetaKey(testKey); r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+
+	testKey = "foo.bar-[]"
+	if r = validateMetaKey(testKey); r == true {
+		t.Fatalf("'%v' is should be rejected", testKey)
+	}
+}
+
+func TestIndexOfFirstRightBracket(t *testing.T) {
+	key := "foo[1]"
+	i := indexOfFirstRightBracket(key)
+	expected := 5
+
+	if i != expected {
+		t.Fatalf("Expected '%d' but '%d'", expected, i)
+	}
+
+	key = "foo[10]"
+	i = indexOfFirstRightBracket(key)
+	expected = 6
+
+	if i != expected {
+		t.Fatalf("Expected '%d' but '%d'", expected, i)
+	}
+}
+
+func TestMetaIndexFromKey(t *testing.T) {
+	key := "foo[1]"
+	i := metaIndexFromKey(key)
+	expected := 1
+
+	if i != expected {
+		t.Fatalf("Expected '%d' but '%d'", expected, i)
+	}
+
+	key = "foo[10]"
+	i = metaIndexFromKey(key)
+	expected = 10
+
+	if i != expected {
+		t.Fatalf("Expected '%d' but '%d'", expected, i)
+	}
+
+	key = "foo[10].bar[4].baz"
+	i = metaIndexFromKey(key)
+	expected = 10
+
+	if i != expected {
+		t.Fatalf("Expected '%d' but '%d'", expected, i)
+	}
+
+	key = "foo[]"
+	i = metaIndexFromKey(key)
+	expected = 0
+
+	if i != expected {
+		t.Fatalf("Expected '%d' but '%d'", expected, i)
 	}
 }
