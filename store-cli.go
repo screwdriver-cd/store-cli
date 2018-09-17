@@ -42,21 +42,16 @@ func finalRecover() {
 }
 
 // makeURL creates the fully-qualified url for a given Store path
-func makeURL(requestType, key, val, scope, storeType string) (*url.URL, error) {
-	storeUrl := os.Getenv("SD_STORE_URL")
-	version := "v4"
-	fullpath := fmt.Sprintf("%s/%s/%s", a.baseURL, version, path)
-
-
-	u, err := url.Parse(fullUrl)
-	if err != nil {
-		return nil, fmt.Errorf("bad url %s: %v", s.url, err)
-	}
+func makeURL(storeType, scope, key string) (*url.URL, error) {
+	storeURL := os.Getenv("SD_STORE_URL")
 	version := "v1"
+
+	// artifacts and logs are in builds folder
 	path := "builds/"
 	if storeType == "cache" {
 		path = "caches/"
 	}
+
 	switch scope {
 	case "events":
 		path += "events/" + os.Getenv("SD_EVENT_ID") + "/" + key
@@ -64,7 +59,7 @@ func makeURL(requestType, key, val, scope, storeType string) (*url.URL, error) {
 		path += os.Getenv("SD_BUILD_ID") + "-" + key
 	}
 
-	u.Path = path.Join(version, u.Path, "builds", s.buildID, storePath)
+	fullpath := fmt.Sprintf("%s/%s/%s", storeURL, version, path)
 
 	return url.Parse(fullpath)
 }
@@ -89,7 +84,7 @@ func handleResponse(res *http.Response) ([]byte, error) {
 
 func get(storeType, scope, key string, output io.Writer) (error) {
 	sdToken := os.Getenv("SD_TOKEN")
-	fullURL, err := makeURL("get", key, "", scope, storeType)
+	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
 		return err
 	}
@@ -114,7 +109,7 @@ func get(storeType, scope, key string, output io.Writer) (error) {
 }
 
 func set(storeType, scope, key, val string) ([]byte, error) {
-	fullURL, err := makeURL("put", key, val, scope, storeType)
+	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
 		return nil, err
 	}
@@ -151,9 +146,9 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "store"
 	app.Usage = "CLI to communicate with Screwdriver Store"
-	app.UsageText = "sd-step command arguments [options]"
+	app.UsageText = "[options]"
 	app.Copyright = "(c) 2018 Yahoo Inc."
-  app.Usage = "get or set metadata for Screwdriver build"
+  app.Usage = "get or set items to Screwdriver store"
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -171,7 +166,7 @@ func main() {
   app.Commands = []cli.Command{
   		{
   			Name:  "get",
-  			Usage: "Put a new item to the store",
+  			Usage: "Get a new item from the store",
   			Action: func(c *cli.Context) error {
   				if len(c.Args()) == 0 {
   					return cli.ShowAppHelp(c)
