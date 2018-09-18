@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"os"
 	"runtime/debug"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/urfave/cli"
 )
@@ -81,17 +81,16 @@ func handleResponse(res *http.Response) ([]byte, error) {
 	return body, nil
 }
 
-
-func get(storeType, scope, key string, output io.Writer) (error) {
+func get(storeType, scope, key string, output io.Writer) error {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
 		return err
 	}
 	req, err := http.NewRequest("GET", fullURL.String(), strings.NewReader(""))
-		if err != nil {
-			return fmt.Errorf("Failed to create request about command to Store API: %v", err)
-		}
+	if err != nil {
+		return fmt.Errorf("Failed to create request about command to Store API: %v", err)
+	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sdToken))
 	var client = &http.Client{
 		Timeout: time.Second * 10,
@@ -124,7 +123,38 @@ func set(storeType, scope, key, val string) ([]byte, error) {
 	// req.Header.Set("Content-Type", bodyType)
 	// req.ContentLength = size
 	var client = &http.Client{
-  	Timeout: time.Second * 10,
+		Timeout: time.Second * 10,
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode/100 == 5 {
+		return nil, fmt.Errorf("response code %d", res.StatusCode)
+	}
+
+	defer res.Body.Close()
+	return handleResponse(res)
+}
+
+func remove(storeType, scope, key, val string) ([]byte, error) {
+	fullURL, err := makeURL(storeType, scope, key)
+	if err != nil {
+		return nil, err
+	}
+
+	sdToken := os.Getenv("SD_TOKEN")
+	req, reqErr := http.NewRequest("DELETE", fullURL.String(), strings.NewReader(""))
+	if reqErr != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", tokenHeader(sdToken))
+	// req.Header.Set("Content-Type", bodyType)
+	// req.ContentLength = size
+	var client = &http.Client{
+		Timeout: time.Second * 10,
 	}
 	res, err := client.Do(req)
 	if err != nil {
@@ -148,62 +178,82 @@ func main() {
 	app.Usage = "CLI to communicate with Screwdriver Store"
 	app.UsageText = "[options]"
 	app.Copyright = "(c) 2018 Yahoo Inc."
-  app.Usage = "get or set items to Screwdriver store"
+	app.Usage = "get, set or delete items in the Screwdriver store"
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:        "scope",
-			Usage:       "Scope of command. For example: event, build, pipeline",
-			Value:       "",
+			Name:  "scope",
+			Usage: "Scope of command. For example: event, build, pipeline",
+			Value: "",
 		},
 		cli.StringFlag{
-			Name:        "type",
-			Usage:       "Type of the command. For example: cache, artifacts, steps",
-			Value:       "stable",
+			Name:  "type",
+			Usage: "Type of the command. For example: cache, artifacts, steps",
+			Value: "stable",
 		},
 	}
 
-  app.Commands = []cli.Command{
-  		{
-  			Name:  "get",
-  			Usage: "Get a new item from the store",
-  			Action: func(c *cli.Context) error {
-  				if len(c.Args()) == 0 {
-  					return cli.ShowAppHelp(c)
-  				}
-					scope := c.String("scope")
-					storeType := c.String("type")
-  				key := c.Args().Get(0)
-  				err := get(storeType, scope, key, os.Stdout)
-  				if err != nil {
-  					failureExit(err)
-  				}
-  				successExit()
-  				return nil
-  			},
-  			Flags: app.Flags,
-  		},
-  		{
-  			Name:  "set",
-  			Usage: "Put a new item to the store",
-  			Action: func(c *cli.Context) error {
-  				if len(c.Args()) <= 1 {
-  					return cli.ShowAppHelp(c)
-  				}
-					scope := c.String("scope")
-					storeType := c.String("type")
-  				key := c.Args().Get(0)
-  				val := c.Args().Get(1)
-  				response, err := set(storeType, scope, key, val)
-  				if err != nil {
-  					failureExit(err)
-  				}
-  				successExit()
-  				return nil
-  			},
-  			Flags: app.Flags,
-  		},
-  	}
+	app.Commands = []cli.Command{
+		{
+			Name:  "get",
+			Usage: "Get a new item from the store",
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) == 0 {
+					return cli.ShowAppHelp(c)
+				}
+				scope := c.String("scope")
+				storeType := c.String("type")
+				key := c.Args().Get(0)
+				err := get(storeType, scope, key, os.Stdout)
+				if err != nil {
+					failureExit(err)
+				}
+				successExit()
+				return nil
+			},
+			Flags: app.Flags,
+		},
+		{
+			Name:  "set",
+			Usage: "Put a new item to the store",
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) <= 1 {
+					return cli.ShowAppHelp(c)
+				}
+				scope := c.String("scope")
+				storeType := c.String("type")
+				key := c.Args().Get(0)
+				val := c.Args().Get(1)
+				response, err := set(storeType, scope, key, val)
+				if err != nil {
+					failureExit(err)
+				}
+				successExit()
+				return nil
+			},
+			Flags: app.Flags,
+		},
+		{
+			Name:  "delete",
+			Usage: "Delete an existing item from the store",
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) <= 1 {
+					return cli.ShowAppHelp(c)
+				}
+				scope := c.String("scope")
+				storeType := c.String("type")
+				key := c.Args().Get(0)
+				val := c.Args().Get(1)
+				response, err := remove(storeType, scope, key, val)
+				if err != nil {
+					failureExit(err)
+				}
+				successExit()
+				return nil
+			},
+			Flags: app.Flags,
+		},
+	}
 
-  	app.Run(os.Args)
+	app.Run(os.Args)
 }
