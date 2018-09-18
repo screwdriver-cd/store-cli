@@ -1,4 +1,4 @@
-package storeinterface
+package sdstoreuploader
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"time"
 )
 
@@ -16,19 +15,19 @@ var retryScaler = 1.0
 
 const maxRetries = 6
 
-// StoreInterface is able to upload the contents of a Reader to the SD Store
-type StoreInterface interface {
+// SDStoreUploader is able to upload the contents of a Reader to the SD Store
+type SDStoreUploader interface {
 	Upload(path string, filePath string) error
 }
 
 type sdUploader struct {
-	url    string
-	token  string
-	client *http.Client
+	url     string
+	token   string
+	client  *http.Client
 }
 
-// NewFileUploader returns an StoreInterface for a given url.
-func NewFileUploader(url, token string) StoreInterface {
+// NewFileUploader returns an SDStoreUploader for a given url.
+func NewFileUploader(url, token string) SDStoreUploader {
 	return &sdUploader{
 		url,
 		token,
@@ -50,22 +49,19 @@ func (e SDError) Error() string {
 
 // Uploads sends a file to a path within the SD Store. The path is relative to
 // the build/event path within the SD Store, e.g. http://store.screwdriver.cd/builds/abc/<storePath>
-func (s *sdUploader) Upload(storePath string, filePath string) error {
-	if err != nil {
-		return fmt.Errorf("generating url for file %q to %s", filePath, storePath)
-	}
-
+func (s *sdUploader) Upload(u *url.URL, filePath string) error {
+	var err error
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
 
-		err = s.putFile(u, "application/x-ndjson", filePath)
+		err := s.putFile(u, "application/x-ndjson", filePath)
 		if err != nil {
 			log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
 			continue
 		}
 		return nil
 	}
-	return fmt.Errorf("posting file %q to %s after %d retries: %v", filePath, storePath, maxRetries, err)
+	return fmt.Errorf("posting file %q to %s after %d retries: %v", filePath, maxRetries, err)
 }
 
 func tokenHeader(token string) string {
