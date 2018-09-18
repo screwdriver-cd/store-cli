@@ -3,13 +3,9 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"os"
 	"runtime/debug"
-	"strings"
-	"time"
 
 	"github.com/urfave/cli"
 )
@@ -64,43 +60,9 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	return url.Parse(fullpath)
 }
 
-func tokenHeader(token string) string {
-	return fmt.Sprintf("Bearer %s", token)
-}
-
-// handleResponse attempts to parse error objects from Screwdriver
-func handleResponse(res *http.Response) ([]byte, error) {
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response Body from Screwdriver: %v", err)
-	}
-
-	if res.StatusCode/100 != 2 {
-		return nil, fmt.Errorf("HTTP %d returned: %s", res.StatusCode, body)
-	}
-	return body, nil
-}
-
 func get(storeType, scope, key string, output io.Writer) error {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest("GET", fullURL.String(), strings.NewReader(""))
-	if err != nil {
-		return fmt.Errorf("Failed to create request about command to Store API: %v", err)
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sdToken))
-	var client = &http.Client{
-		Timeout: time.Second * 10,
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("Failed to get command from Store API: %v", err)
-	}
-	defer res.Body.Close()
-	body, err := handleResponse(res)
 	if err != nil {
 		return err
 	}
@@ -108,65 +70,21 @@ func get(storeType, scope, key string, output io.Writer) error {
 }
 
 func set(storeType, scope, key, val string) ([]byte, error) {
+	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
 		return nil, err
 	}
-
-	sdToken := os.Getenv("SD_TOKEN")
-	req, reqErr := http.NewRequest("PUT", fullURL.String(), strings.NewReader(""))
-	if reqErr != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Authorization", tokenHeader(sdToken))
-	// req.Header.Set("Content-Type", bodyType)
-	// req.ContentLength = size
-	var client = &http.Client{
-		Timeout: time.Second * 10,
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if res.StatusCode/100 == 5 {
-		return nil, fmt.Errorf("response code %d", res.StatusCode)
-	}
-
-	defer res.Body.Close()
-	return handleResponse(res)
+	return nil, nil
 }
 
 func remove(storeType, scope, key, val string) ([]byte, error) {
+	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
 		return nil, err
 	}
-
-	sdToken := os.Getenv("SD_TOKEN")
-	req, reqErr := http.NewRequest("DELETE", fullURL.String(), strings.NewReader(""))
-	if reqErr != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Authorization", tokenHeader(sdToken))
-	// req.Header.Set("Content-Type", bodyType)
-	// req.ContentLength = size
-	var client = &http.Client{
-		Timeout: time.Second * 10,
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if res.StatusCode/100 == 5 {
-		return nil, fmt.Errorf("response code %d", res.StatusCode)
-	}
-
-	defer res.Body.Close()
-	return handleResponse(res)
+	return nil, nil
 }
 
 func main() {
