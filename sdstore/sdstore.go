@@ -15,16 +15,16 @@ var retryScaler = 1.0
 
 const maxRetries = 6
 
-// SDStore is able to upload, download, and delete the contents of a Reader to the SD Store
+// SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
 	Upload(u *url.URL, filePath string) error
 	Download(url *url.URL) error
 }
 
 type sdStore struct {
-	url     string
-	token   string
-	client  *http.Client
+	url    string
+	token  string
+	client *http.Client
 }
 
 // NewStore returns an SDStore for a given url.
@@ -46,6 +46,22 @@ type SDError struct {
 // Error implements the error interface for SDError
 func (e SDError) Error() string {
 	return fmt.Sprintf("%d %s: %s", e.StatusCode, e.Reason, e.Message)
+}
+
+// Remove a file from a path within the SD Store
+func (s *sdStore) Remove(url *url.URL) error {
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
+
+		_, err := s.remove(url)
+		if err != nil {
+			log.Printf("(Try %d of %d) error received from file removal: %v", i+1, maxRetries, err)
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
 }
 
 // Download a file from a path within the SD Store
@@ -166,6 +182,27 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 	req.Header.Set("Authorization", tokenHeader(s.token))
 	req.Header.Set("Content-Type", bodyType)
 	req.ContentLength = size
+
+	res, err := s.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode/100 == 5 {
+		return nil, fmt.Errorf("response code %d", res.StatusCode)
+	}
+
+	defer res.Body.Close()
+	return handleResponse(res)
+}
+
+func (s *sdStore) remove(url *url.URL) ([]byte, error) {
+	req, err := http.NewRequest("DELETE", url.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", tokenHeader(s.token))
 
 	res, err := s.client.Do(req)
 	if err != nil {

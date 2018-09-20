@@ -7,8 +7,8 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/urfave/cli"
 	"github.com/screwdriver-cd/store-cli/sdstore"
+	"github.com/urfave/cli"
 )
 
 // VERSION gets set by the build script via the LDFLAGS
@@ -72,26 +72,28 @@ func get(storeType, scope, key string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	store := sdstore.NewStore(storeURL, sdToken);
+	store := sdstore.NewStore(storeURL, sdToken)
 	return store.Download(fullURL)
 }
 
-func set(storeType, scope, key, val string) ([]byte, error) {
+func set(storeType, scope, key, filePath string) ([]byte, error) {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	store := sdstore.NewStore(fullURL, sdToken)
+	return store.Upload(fullURL, filePath)
 }
 
-func remove(storeType, scope, key, val string) ([]byte, error) {
+func remove(storeType, scope, key string) ([]byte, error) {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	store := sdstore.NewStore(fullURL, sdToken)
+	return store.Remove(fullURL)
 }
 
 func main() {
@@ -103,7 +105,7 @@ func main() {
 	app.Usage = "CLI to communicate with Screwdriver Store"
 	app.UsageText = "[options]"
 	app.Copyright = "(c) 2018 Yahoo Inc."
-	app.Usage = "get, set or delete items in the Screwdriver store"
+	app.Usage = "get, set or remove items in the Screwdriver store"
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -159,8 +161,8 @@ func main() {
 			Flags: app.Flags,
 		},
 		{
-			Name:  "delete",
-			Usage: "Delete an existing item from the store",
+			Name:  "remove",
+			Usage: "Remove an existing item from the store",
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) <= 1 {
 					return cli.ShowAppHelp(c)
