@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 
 	"github.com/urfave/cli"
+	"github.com/screwdriver-cd/store-cli/sdstore"
 )
 
 // VERSION gets set by the build script via the LDFLAGS
@@ -42,31 +43,37 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	storeURL := os.Getenv("SD_STORE_URL")
 	version := "v1"
 
-	// artifacts and logs are in builds folder
-	path := "builds/"
-	if storeType == "cache" {
-		path = "caches/"
+	var folder string
+	switch storeType {
+	case "cache":
+		folder = "caches"
+	case "logs":
+	case "artifacts":
+		folder = "builds"
 	}
 
+	var path string
 	switch scope {
 	case "events":
-		path += "events/" + os.Getenv("SD_EVENT_ID") + "/" + key
+		path = "events/" + os.Getenv("SD_EVENT_ID") + "/" + key
 	case "builds":
-		path += os.Getenv("SD_BUILD_ID") + "-" + key
+		path = os.Getenv("SD_BUILD_ID") + "-" + key
 	}
 
-	fullpath := fmt.Sprintf("%s/%s/%s", storeURL, version, path)
+	fullpath := fmt.Sprintf("%s/%s/%s/%s", storeURL, version, folder, path)
 
 	return url.Parse(fullpath)
 }
 
 func get(storeType, scope, key string, output io.Writer) error {
+	storeURL := os.Getenv("SD_STORE_URL")
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
 		return err
 	}
-	return nil
+	store := NewStore(storeURL, sdToken);
+	return store.Download(fullURL)
 }
 
 func set(storeType, scope, key, val string) ([]byte, error) {

@@ -1,4 +1,4 @@
-package sdstoreuploader
+package sdstore
 
 import (
 	"fmt"
@@ -15,20 +15,21 @@ var retryScaler = 1.0
 
 const maxRetries = 6
 
-// SDStoreUploader is able to upload the contents of a Reader to the SD Store
-type SDStoreUploader interface {
+// SDStore is able to upload, download, and delete the contents of a Reader to the SD Store
+type SDStore interface {
 	Upload(path string, filePath string) error
+	Download(path string, filePath string) error
 }
 
-type sdUploader struct {
+type sdStore struct {
 	url     string
 	token   string
 	client  *http.Client
 }
 
-// NewFileUploader returns an SDStoreUploader for a given url.
-func NewFileUploader(url, token string) SDStoreUploader {
-	return &sdUploader{
+// NewStore returns an SDStore for a given url.
+func NewStore(url, token string) SDStore {
+	return &sdStore{
 		url,
 		token,
 		&http.Client{Timeout: 30 * time.Second},
@@ -49,7 +50,7 @@ func (e SDError) Error() string {
 
 // Uploads sends a file to a path within the SD Store. The path is relative to
 // the build/event path within the SD Store, e.g. http://store.screwdriver.cd/builds/abc/<storePath>
-func (s *sdUploader) Upload(u *url.URL, filePath string) error {
+func (s *sdStore) Upload(u *url.URL, filePath string) error {
 	var err error
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
@@ -64,6 +65,23 @@ func (s *sdUploader) Upload(u *url.URL, filePath string) error {
 	return fmt.Errorf("posting file %q to %s after %d retries: %v", filePath, maxRetries, err)
 }
 
+// Download a file from a path within the SD Store
+func (s *sdStore) Download(url *url.URL) error {
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
+
+		err := s.get(url)
+		if err != nil {
+			log.Printf("(Try %d of %d) error received from file download: %v", i+1, maxRetries, err)
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
+}
+
+// token header for request
 func tokenHeader(token string) string {
 	return fmt.Sprintf("Bearer %s", token)
 }
@@ -81,9 +99,30 @@ func handleResponse(res *http.Response) ([]byte, error) {
 	return body, nil
 }
 
-// putFile writes a file at filePath to a url with a PUT request. It streams the data
-// from disk to save memory
-func (s *sdUploader) putFile(url *url.URL, bodyType string, filePath string) error {
+// GET request from SD Store
+func (s *sdStore) get(url *url.URL) ([]byte, error) {
+	req, err := http.NewRequest("GET", url.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", tokenHeader(s.token))
+
+	res, err := s.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode/100 == 5 {
+		return nil, fmt.Errorf("response code %d", res.StatusCode)
+	}
+
+	defer res.Body.Close()
+	return handleResponse(res)
+}
+
+// putFile writes a file at filePath to a url with a PUT request. It streams the data from disk to save memory
+func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error {
 	input, err := os.Open(filePath)
 	if err != nil {
 		return err
@@ -117,7 +156,8 @@ func (s *sdUploader) putFile(url *url.URL, bodyType string, filePath string) err
 	return <-done
 }
 
-func (s *sdUploader) put(url *url.URL, bodyType string, payload io.Reader, size int64) ([]byte, error) {
+// PUT request to SD store
+func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int64) ([]byte, error) {
 	req, err := http.NewRequest("PUT", url.String(), payload)
 	if err != nil {
 		return nil, err
