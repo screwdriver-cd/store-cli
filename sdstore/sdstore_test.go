@@ -1,4 +1,4 @@
-package storeinterface
+package sdstore
 
 import (
 	"bytes"
@@ -62,7 +62,7 @@ func TestFileUpload(t *testing.T) {
 	url := "http://fakeurl"
 	token := "faketoken"
 	testPath := "test/path/1"
-	uploader := &sdUploader{
+	uploader := &sdStore{
 		url,
 		token,
 		&http.Client{Timeout: 10 * time.Second},
@@ -117,7 +117,7 @@ func TestFileUploadRetry(t *testing.T) {
 	url := "http://fakeurl"
 	token := "faketoken"
 	testPath := "test/path/1"
-	uploader := &sdUploader{
+	uploader := &sdStore{
 		url,
 		token,
 		&http.Client{Timeout: 10 * time.Second},
