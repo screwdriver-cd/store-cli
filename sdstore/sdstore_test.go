@@ -1,4 +1,4 @@
-package storeinterface
+package sdstore
 
 import (
 	"bytes"

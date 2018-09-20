@@ -72,7 +72,7 @@ func get(storeType, scope, key string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	store := NewStore(storeURL, sdToken);
+	store := sdstore.NewStore(storeURL, sdToken);
 	return store.Download(fullURL)
 }
 
