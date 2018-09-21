@@ -18,7 +18,7 @@ const maxRetries = 6
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
 	Upload(u *url.URL, filePath string) error
-	Download(url *url.URL) error
+	Download(url *url.URL) ([]byte, error)
 }
 
 type sdStore struct {
@@ -63,19 +63,20 @@ func (s *sdStore) Remove(url *url.URL) error {
 }
 
 // Download a file from a path within the SD Store
-func (s *sdStore) Download(url *url.URL) error {
+func (s *sdStore) Download(url *url.URL) ([]byte, error) {
 	var err error
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
 
-		_, err := s.get(url)
+		res, err := s.get(url)
 		if err != nil {
 			log.Printf("(Try %d of %d) error received from file download: %v", i+1, maxRetries, err)
 			continue
 		}
-		return nil
+		return res, nil
 	}
-	return fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
+
+	return nil, fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
 }
 
 // Uploads sends a file to a path within the SD Store. The path is relative to
@@ -113,7 +114,7 @@ func handleResponse(res *http.Response) ([]byte, error) {
 	return body, nil
 }
 
-// DELETE request 
+// DELETE request
 func (s *sdStore) remove(url *url.URL) ([]byte, error) {
 	req, err := http.NewRequest("DELETE", url.String(), nil)
 	if err != nil {
