@@ -22,15 +22,13 @@ type SDStore interface {
 }
 
 type sdStore struct {
-	url    string
-	token  string
-	client *http.Client
+	token   string
+	client  *http.Client
 }
 
 // NewStore returns an SDStore for a given url.
 func NewStore(url, token string) SDStore {
 	return &sdStore{
-		url,
 		token,
 		&http.Client{Timeout: 30 * time.Second},
 	}
@@ -94,7 +92,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("posting file %q to %s after %d retries: %v", filePath, maxRetries, err)
+	return fmt.Errorf("posting to %s after %d retries: %v", filePath, maxRetries, err)
 }
 
 // token header for request
@@ -113,6 +111,28 @@ func handleResponse(res *http.Response) ([]byte, error) {
 		return nil, fmt.Errorf("HTTP %d returned: %s", res.StatusCode, body)
 	}
 	return body, nil
+}
+
+// DELETE request 
+func (s *sdStore) remove(url *url.URL) ([]byte, error) {
+	req, err := http.NewRequest("DELETE", url.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", tokenHeader(s.token))
+
+	res, err := s.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode/100 == 5 {
+		return nil, fmt.Errorf("response code %d", res.StatusCode)
+	}
+
+	defer res.Body.Close()
+	return handleResponse(res)
 }
 
 // GET request from SD Store
@@ -182,27 +202,6 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 	req.Header.Set("Authorization", tokenHeader(s.token))
 	req.Header.Set("Content-Type", bodyType)
 	req.ContentLength = size
-
-	res, err := s.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if res.StatusCode/100 == 5 {
-		return nil, fmt.Errorf("response code %d", res.StatusCode)
-	}
-
-	defer res.Body.Close()
-	return handleResponse(res)
-}
-
-func (s *sdStore) remove(url *url.URL) ([]byte, error) {
-	req, err := http.NewRequest("DELETE", url.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Authorization", tokenHeader(s.token))
 
 	res, err := s.client.Do(req)
 	if err != nil {
