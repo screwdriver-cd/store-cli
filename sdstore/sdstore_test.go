@@ -58,12 +58,9 @@ func testFile() *os.File {
 }
 
 func TestFileUpload(t *testing.T) {
-	testBuildID := "testbuild"
-	url := "http://fakeurl"
 	token := "faketoken"
-	testPath := "test/path/1"
+	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
 	uploader := &sdStore{
-		url,
 		token,
 		&http.Client{Timeout: 10 * time.Second},
 	}
@@ -84,11 +81,6 @@ func TestFileUpload(t *testing.T) {
 			t.Errorf("Received payload %s, want %s", got, want)
 		}
 
-		wantURL := fmt.Sprintf("%s/v1/builds/%s/%s", url, testBuildID, testPath)
-		if r.URL.String() != wantURL {
-			t.Errorf("Wrong URL for the uploader. Got %s, want %s", r.URL.String(), wantURL)
-		}
-
 		if r.Method != "PUT" {
 			t.Errorf("Uploaded with method %s, want PUT", r.Method)
 		}
@@ -104,7 +96,7 @@ func TestFileUpload(t *testing.T) {
 		}
 	})
 	uploader.client = http
-	uploader.Upload(testPath, testFile().Name())
+	uploader.Upload(u, testFile().Name())
 
 	if !called {
 		t.Fatalf("The HTTP client was never used.")
@@ -113,12 +105,9 @@ func TestFileUpload(t *testing.T) {
 
 func TestFileUploadRetry(t *testing.T) {
 	retryScaler = .01
-	testBuildID := "testbuild"
-	url := "http://fakeurl"
 	token := "faketoken"
-	testPath := "test/path/1"
+	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
 	uploader := &sdStore{
-		url,
 		token,
 		&http.Client{Timeout: 10 * time.Second},
 	}
@@ -128,7 +117,7 @@ func TestFileUploadRetry(t *testing.T) {
 		callCount++
 	})
 	uploader.client = http
-	err := uploader.Upload(testPath, testFile().Name())
+	err := uploader.Upload(u, testFile().Name())
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
 	}
