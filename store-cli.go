@@ -42,26 +42,31 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	storeURL := os.Getenv("SD_STORE_URL")
 	version := "v1"
 
-	var folder string
-	switch storeType {
-	case "cache":
-		folder = "caches"
-	case "logs":
-	case "artifacts":
-		folder = "builds"
+	var scopeEnv string
+	switch scope {
+	case "events":
+		scopeEnv = os.Getenv("SD_EVENT_ID")
+	case "jobs":
+		scopeEnv = os.Getenv("SD_JOB_ID")
+	case "pipelines":
+		scopeEnv = os.Getenv("SD_PIPELINE_ID")
 	}
 
 	var path string
-	switch scope {
-	case "events":
-		path = "events/" + os.Getenv("SD_EVENT_ID") + "/" + key
-	case "builds":
-		path = os.Getenv("SD_BUILD_ID") + "-" + key
+	switch storeType {
+	case "cache":
+		path = "caches/" + scope + "/" + scopeEnv + "/" + key
+	case "artifacts":
+		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-ARTIFACTS/" + key
+	case "logs":
+		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-" + key
+	default:
+		path = ""
 	}
 
 	var fullpath string
-	if len(folder) > 0 && len(path) > 0 {
-		fullpath = fmt.Sprintf("%s/%s/%s/%s", storeURL, version, folder, path)
+	if len(path) > 0 {
+		fullpath = fmt.Sprintf("%s/%s/%s", storeURL, version, path)
 	} else {
 		fullpath = fmt.Sprintf("%s/%s", storeURL, version)
 	}

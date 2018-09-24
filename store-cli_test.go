@@ -16,6 +16,7 @@ func TestMakeURL(t *testing.T) {
 	os.Setenv("SD_STORE_URL", "http://store.screwdriver.cd")
 	os.Setenv("SD_BUILD_ID", "10038")
 	os.Setenv("SD_EVENT_ID", "499")
+	os.Setenv("SD_PIPELINE_ID", "100")
 
 	storeType := "cache"
 	scope := "events"
@@ -26,20 +27,47 @@ func TestMakeURL(t *testing.T) {
 		t.Fatalf("Expected '%s' but '%s'", expected, i)
 	}
 
-	storeType = "artifacts"
-	scope = "builds"
-	key = "test"
+	storeType = "cache"
+	scope = "pipelines"
+	key = "cache-1"
 	i, _ = makeURL(storeType, scope, key)
-	expected = "http://store.screwdriver.cd/v1/builds/10038-test"
+	expected = "http://store.screwdriver.cd/v1/caches/pipelines/100/cache-1"
 	if i.String() != expected {
 		t.Fatalf("Expected '%s' but '%s'", expected, i)
 	}
 
 	storeType = "artifacts"
 	scope = "events"
+	key = "artifact-1"
+	i, _ = makeURL(storeType, scope, key)
+	expected = "http://store.screwdriver.cd/v1/builds/10038-ARTIFACTS/artifact-1"
+	if i.String() != expected {
+		t.Fatalf("Expected '%s' but '%s'", expected, i)
+	}
+
+	storeType = "artifacts"
+	scope = "builds"
 	key = "test"
 	i, _ = makeURL(storeType, scope, key)
-	expected = "http://store.screwdriver.cd/v1/builds/events/499/test"
+	expected = "http://store.screwdriver.cd/v1/builds/10038-ARTIFACTS/test"
+	if i.String() != expected {
+		t.Fatalf("Expected '%s' but '%s'", expected, i)
+	}
+
+	storeType = "logs"
+	scope = "builds"
+	key = "testlog"
+	i, _ = makeURL(storeType, scope, key)
+	expected = "http://store.screwdriver.cd/v1/builds/10038-testlog"
+	if i.String() != expected {
+		t.Fatalf("Expected '%s' but '%s'", expected, i)
+	}
+
+	storeType = "logs"
+	scope = "builds"
+	key = "step-bookend"
+	i, _ = makeURL(storeType, scope, key)
+	expected = "http://store.screwdriver.cd/v1/builds/10038-step-bookend"
 	if i.String() != expected {
 		t.Fatalf("Expected '%s' but '%s'", expected, i)
 	}
@@ -48,7 +76,7 @@ func TestMakeURL(t *testing.T) {
 	scope = "pipelines"
 	key = "test2"
 	i, _ = makeURL(storeType, scope, key)
-	expected = "http://store.screwdriver.cd/v1"
+	expected = "http://store.screwdriver.cd/v1/builds/10038-test2"
 	if i.String() != expected {
 		t.Fatalf("Expected '%s' but '%s'", expected, i)
 	}
