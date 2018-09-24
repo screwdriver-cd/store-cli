@@ -19,15 +19,16 @@ const maxRetries = 6
 type SDStore interface {
 	Upload(u *url.URL, filePath string) error
 	Download(url *url.URL) error
+	Remove(url *url.URL) error
 }
 
 type sdStore struct {
-	token   string
-	client  *http.Client
+	token  string
+	client *http.Client
 }
 
-// NewStore returns an SDStore for a given url.
-func NewStore(url, token string) SDStore {
+// NewStore returns an SDStore instance.
+func NewStore(token string) SDStore {
 	return &sdStore{
 		token,
 		&http.Client{Timeout: 30 * time.Second},
@@ -113,7 +114,7 @@ func handleResponse(res *http.Response) ([]byte, error) {
 	return body, nil
 }
 
-// DELETE request 
+// DELETE request
 func (s *sdStore) remove(url *url.URL) ([]byte, error) {
 	req, err := http.NewRequest("DELETE", url.String(), nil)
 	if err != nil {
