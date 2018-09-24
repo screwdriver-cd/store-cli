@@ -22,8 +22,8 @@ type SDStore interface {
 }
 
 type sdStore struct {
-	token   string
-	client  *http.Client
+	token  string
+	client *http.Client
 }
 
 // NewStore returns an SDStore for a given url.

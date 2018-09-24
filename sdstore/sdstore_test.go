@@ -146,7 +146,7 @@ func TestDownload(t *testing.T) {
 	})
 
 	downloader.client = http
-	res,_ :=downloader.Download(u)
+	res, _ := downloader.Download(u)
 
 	if string(res) != want {
 		t.Errorf("Response is %s, want %s", string(res), want)
@@ -171,9 +171,61 @@ func TestDownloadRetry(t *testing.T) {
 		callCount++
 	})
 	downloader.client = http
-	_,err := downloader.Download(u)
+	_, err := downloader.Download(u)
 	if err == nil {
 		t.Error("Expected error from downloader.Download(), got nil")
+	}
+	if callCount != 6 {
+		t.Errorf("Expected 6 retries, got %d", callCount)
+	}
+}
+
+func TestRemove(t *testing.T) {
+	token := "faketoken"
+	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	removeRes := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+	called := false
+
+	http := makeFakeHTTPClient(t, 202, "OK", func(r *http.Request) {
+		called = true
+
+		if r.Method != "DELETE" {
+			t.Errorf("Called with method %s, want DELETE", r.Method)
+		}
+	})
+
+	removeRes.client = http
+	err := removeRes.Remove(u)
+
+	if err != nil {
+		t.Error("Expected nil from removeRes.Remove(), got error")
+	}
+
+	if !called {
+		t.Fatalf("The HTTP client was never used.")
+	}
+}
+
+func TestRemoveRetry(t *testing.T) {
+	retryScaler = .01
+	token := "faketoken"
+	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	removeRes := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+
+	callCount := 0
+	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
+		callCount++
+	})
+	removeRes.client = http
+	err := removeRes.Remove(u)
+	if err == nil {
+		t.Error("Expected error from removeRes.Remove(), got nil")
 	}
 	if callCount != 6 {
 		t.Errorf("Expected 6 retries, got %d", callCount)
