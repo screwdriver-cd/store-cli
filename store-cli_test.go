@@ -80,4 +80,13 @@ func TestMakeURL(t *testing.T) {
 	if i.String() != expected {
 		t.Fatalf("Expected '%s' but '%s'", expected, i)
 	}
+
+	var err error
+	storeType = "invalid"
+	scope = "pipelines"
+	key = "test2"
+	i, err = makeURL(storeType, scope, key)
+	if err == nil {
+		t.Fatalf("Expected error, got nil")
+	}
 }

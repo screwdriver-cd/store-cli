@@ -68,7 +68,7 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	if len(path) > 0 {
 		fullpath = fmt.Sprintf("%s/%s/%s", storeURL, version, path)
 	} else {
-		fullpath = fmt.Sprintf("%s/%s", storeURL, version)
+		return nil, fmt.Errorf("Invalid parameters")
 	}
 
 	return url.Parse(fullpath)
