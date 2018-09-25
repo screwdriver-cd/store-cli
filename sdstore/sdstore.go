@@ -21,6 +21,7 @@ const maxRetries = 6
 type SDStore interface {
 	Upload(u *url.URL, filePath string) error
 	Download(url *url.URL) ([]byte, error)
+	Remove(url *url.URL) error
 }
 
 type sdStore struct {
@@ -28,8 +29,8 @@ type sdStore struct {
 	client *http.Client
 }
 
-// NewStore returns an SDStore for a given url.
-func NewStore(url, token string) SDStore {
+// NewStore returns an SDStore instance.
+func NewStore(token string) SDStore {
 	return &sdStore{
 		token,
 		&http.Client{Timeout: 30 * time.Second},
@@ -153,11 +154,15 @@ func (s *sdStore) remove(url *url.URL) ([]byte, error) {
 // GET request from SD Store
 func (s *sdStore) get(url *url.URL) ([]byte, error) {
 	filePath := getFilePath(url)
-	file, err := os.Create(filePath)
-	if err != nil  {
-	 return nil, err
+	var file *os.File
+	var err error
+	if filePath != "" {
+		file, err = os.Create(filePath)
+		if err != nil  {
+		 return nil, err
+		}
+		defer file.Close()
 	}
-	defer file.Close()
 
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
@@ -181,10 +186,13 @@ func (s *sdStore) get(url *url.URL) ([]byte, error) {
 		return nil, err
 	}
 
-	_, err = io.Copy(file, res.Body)
-  if err != nil  {
-  	 return nil, err
-  }
+	// Write to file
+	if filePath != "" {
+		_, err = io.Copy(file, res.Body)
+	  if err != nil  {
+	  	 return nil, err
+	  }
+	}
 
   return body, nil
 }
