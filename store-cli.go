@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"runtime/debug"
@@ -43,62 +42,70 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	storeURL := os.Getenv("SD_STORE_URL")
 	version := "v1"
 
-	var folder string
-	switch storeType {
-	case "cache":
-		folder = "caches"
-	case "logs":
-	case "artifacts":
-		folder = "builds"
+	var scopeEnv string
+	switch scope {
+	case "events":
+		scopeEnv = os.Getenv("SD_EVENT_ID")
+	case "jobs":
+		scopeEnv = os.Getenv("SD_JOB_ID")
+	case "pipelines":
+		scopeEnv = os.Getenv("SD_PIPELINE_ID")
 	}
 
 	var path string
-	switch scope {
-	case "events":
-		path = "events/" + os.Getenv("SD_EVENT_ID") + "/" + key
-	case "builds":
-		path = os.Getenv("SD_BUILD_ID") + "-" + key
+	switch storeType {
+	case "cache":
+		path = "caches/" + scope + "/" + scopeEnv + "/" + key
+	case "artifacts":
+		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-ARTIFACTS/" + key
+	case "logs":
+		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-" + key
+	default:
+		path = ""
 	}
 
-	fullpath := fmt.Sprintf("%s/%s/%s/%s", storeURL, version, folder, path)
+	var fullpath string
+	if len(path) > 0 {
+		fullpath = fmt.Sprintf("%s/%s/%s", storeURL, version, path)
+	} else {
+		return nil, fmt.Errorf("Invalid parameters")
+	}
 
 	return url.Parse(fullpath)
 }
 
-func get(storeType, scope, key string, output io.Writer) error {
-	storeURL := os.Getenv("SD_STORE_URL")
+func get(storeType, scope, key string) error {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
 		return err
 	}
-	store := sdstore.NewStore(storeURL, sdToken)
+	store := sdstore.NewStore(sdToken)
 	return store.Download(fullURL)
 }
 
-func set(storeType, scope, key, filePath string) ([]byte, error) {
+func set(storeType, scope, key, filePath string) error {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	store := sdstore.NewStore(fullURL, sdToken)
+	store := sdstore.NewStore(sdToken)
 	return store.Upload(fullURL, filePath)
 }
 
-func remove(storeType, scope, key string) ([]byte, error) {
+func remove(storeType, scope, key string) error {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	store := sdstore.NewStore(fullURL, sdToken)
+	store := sdstore.NewStore(sdToken)
 	return store.Remove(fullURL)
 }
 
 func main() {
 	defer finalRecover()
-	var err error
 
 	app := cli.NewApp()
 	app.Name = "store"
@@ -131,7 +138,7 @@ func main() {
 				scope := c.String("scope")
 				storeType := c.String("type")
 				key := c.Args().Get(0)
-				err := get(storeType, scope, key, os.Stdout)
+				err := get(storeType, scope, key)
 				if err != nil {
 					failureExit(err)
 				}
@@ -151,7 +158,7 @@ func main() {
 				storeType := c.String("type")
 				key := c.Args().Get(0)
 				val := c.Args().Get(1)
-				response, err := set(storeType, scope, key, val)
+				err := set(storeType, scope, key, val)
 				if err != nil {
 					failureExit(err)
 				}
@@ -170,8 +177,7 @@ func main() {
 				scope := c.String("scope")
 				storeType := c.String("type")
 				key := c.Args().Get(0)
-				val := c.Args().Get(1)
-				response, err := remove(storeType, scope, key, val)
+				err := remove(storeType, scope, key)
 				if err != nil {
 					failureExit(err)
 				}
