@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -18,7 +21,7 @@ const maxRetries = 6
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
 	Upload(u *url.URL, filePath string) error
-	Download(url *url.URL) error
+	Download(url *url.URL) ([]byte, error)
 	Remove(url *url.URL) error
 }
 
@@ -40,6 +43,22 @@ type SDError struct {
 	StatusCode int    `json:"statusCode"`
 	Reason     string `json:"error"`
 	Message    string `json:"message"`
+}
+
+func getFilePath(url *url.URL) (string) {
+	path := url.Path
+	r := regexp.MustCompile("^/v[0-9]+/caches/(?:events|pipelines|jobs)/(?:[0-9]+)/([\\w-/.]+)$")
+	matched := r.FindStringSubmatch(path)
+	if len(matched) < 2 {
+		return ""
+	}
+	filepath := matched[1]
+
+	// trim trailing slashes
+	filepath = strings.TrimRight(filepath, "/")
+
+	// add current directory
+	return "./" + filepath
 }
 
 // Error implements the error interface for SDError
@@ -64,19 +83,22 @@ func (s *sdStore) Remove(url *url.URL) error {
 }
 
 // Download a file from a path within the SD Store
-func (s *sdStore) Download(url *url.URL) error {
+func (s *sdStore) Download(url *url.URL) ([]byte, error) {
 	var err error
+
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
 
-		_, err := s.get(url)
+		res, err := s.get(url)
 		if err != nil {
 			log.Printf("(Try %d of %d) error received from file download: %v", i+1, maxRetries, err)
 			continue
 		}
-		return nil
+
+		return res, nil
 	}
-	return fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
+
+	return nil, fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
 }
 
 // Uploads sends a file to a path within the SD Store. The path is relative to
@@ -128,16 +150,30 @@ func (s *sdStore) remove(url *url.URL) ([]byte, error) {
 		return nil, err
 	}
 
+	defer res.Body.Close()
 	if res.StatusCode/100 == 5 {
 		return nil, fmt.Errorf("response code %d", res.StatusCode)
 	}
 
-	defer res.Body.Close()
 	return handleResponse(res)
 }
 
 // GET request from SD Store
 func (s *sdStore) get(url *url.URL) ([]byte, error) {
+	filePath := getFilePath(url)
+	var file *os.File
+	var err error
+
+	if filePath != "" {
+		dir, _ := filepath.Split(filePath)
+		err := os.MkdirAll(dir, 0777)
+		file, err = os.Create(filePath)
+		if err != nil  {
+		 return nil, err
+		}
+		defer file.Close()
+	}
+
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		return nil, err
@@ -150,12 +186,25 @@ func (s *sdStore) get(url *url.URL) ([]byte, error) {
 		return nil, err
 	}
 
+	defer res.Body.Close()
 	if res.StatusCode/100 == 5 {
 		return nil, fmt.Errorf("response code %d", res.StatusCode)
 	}
 
-	defer res.Body.Close()
-	return handleResponse(res)
+	body, err := handleResponse(res)
+	if err != nil {
+		return nil, err
+	}
+
+	// Write to file
+	if filePath != "" {
+		_, err := file.Write(body)
+	  if err != nil  {
+	  	 return nil, err
+	  }
+	}
+
+  return body, nil
 }
 
 // putFile writes a file at filePath to a url with a PUT request. It streams the data from disk to save memory
@@ -209,10 +258,10 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 		return nil, err
 	}
 
+	defer res.Body.Close()
 	if res.StatusCode/100 == 5 {
 		return nil, fmt.Errorf("response code %d", res.StatusCode)
 	}
 
-	defer res.Body.Close()
 	return handleResponse(res)
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -37,7 +38,7 @@ func makeFakeHTTPClient(t *testing.T, code int, body string, v func(r *http.Requ
 
 		w.WriteHeader(code)
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, body)
+		w.Write([]byte("test-content"))
 	}))
 
 	transport := &http.Transport{
@@ -57,7 +58,7 @@ func testFile() *os.File {
 	return f
 }
 
-func TestFileUpload(t *testing.T) {
+func TestUpload(t *testing.T) {
 	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
 	uploader := &sdStore{
@@ -103,7 +104,7 @@ func TestFileUpload(t *testing.T) {
 	}
 }
 
-func TestFileUploadRetry(t *testing.T) {
+func TestUploadRetry(t *testing.T) {
 	retryScaler = .01
 	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
@@ -120,6 +121,153 @@ func TestFileUploadRetry(t *testing.T) {
 	err := uploader.Upload(u, testFile().Name())
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
+	}
+	if callCount != 6 {
+		t.Errorf("Expected 6 retries, got %d", callCount)
+	}
+}
+
+func TestDownload(t *testing.T) {
+	token := "faketoken"
+	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	downloader := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+	called := false
+
+	want := "test-content"
+
+	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
+		called = true
+
+		if r.Method != "GET" {
+			t.Errorf("Called with method %s, want GET", r.Method)
+		}
+	})
+
+	downloader.client = http
+	res, _ := downloader.Download(u)
+
+	if string(res) != want {
+		t.Errorf("Response is %s, want %s", string(res), want)
+	}
+
+	if !called {
+		t.Fatalf("The HTTP client was never used.")
+	}
+}
+
+func TestDownloadRetry(t *testing.T) {
+	retryScaler = .01
+	token := "faketoken"
+	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	downloader := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+
+	callCount := 0
+	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
+		callCount++
+	})
+	downloader.client = http
+	_, err := downloader.Download(u)
+	if err == nil {
+		t.Error("Expected error from downloader.Download(), got nil")
+	}
+	if callCount != 6 {
+		t.Errorf("Expected 6 retries, got %d", callCount)
+	}
+}
+
+func TestDownloadWriteBack(t *testing.T) {
+	token := "faketoken"
+	testfilepath := "test-data/node_modules/schema/file"
+	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfilepath)
+	downloader := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+	called := false
+
+	want := "test-content"
+
+	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
+		called = true
+
+		if r.Method != "GET" {
+			t.Errorf("Called with method %s, want GET", r.Method)
+		}
+	})
+
+	downloader.client = http
+	res, _ := downloader.Download(u)
+
+	if string(res) != want {
+		t.Errorf("Response is %s, want %s", string(res), want)
+	}
+
+	filecontent, err := ioutil.ReadFile("./" + testfilepath)
+	if err != nil {
+		t.Errorf("File content is not written")
+	}
+
+	if string(filecontent) != want {
+		t.Errorf("File content is %s, want %s", string(filecontent), want)
+	}
+
+	if !called {
+		t.Fatalf("The HTTP client was never used.")
+	}
+}
+
+func TestRemove(t *testing.T) {
+	token := "faketoken"
+	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	removeRes := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+	called := false
+
+	http := makeFakeHTTPClient(t, 202, "OK", func(r *http.Request) {
+		called = true
+
+		if r.Method != "DELETE" {
+			t.Errorf("Called with method %s, want DELETE", r.Method)
+		}
+	})
+
+	removeRes.client = http
+	err := removeRes.Remove(u)
+
+	if err != nil {
+		t.Error("Expected nil from removeRes.Remove(), got error")
+	}
+
+	if !called {
+		t.Fatalf("The HTTP client was never used.")
+	}
+}
+
+func TestRemoveRetry(t *testing.T) {
+	retryScaler = .01
+	token := "faketoken"
+	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	removeRes := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+
+	callCount := 0
+	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
+		callCount++
+	})
+	removeRes.client = http
+	err := removeRes.Remove(u)
+	if err == nil {
+		t.Error("Expected error from removeRes.Remove(), got nil")
 	}
 	if callCount != 6 {
 		t.Errorf("Expected 6 retries, got %d", callCount)
