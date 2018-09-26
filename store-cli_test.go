@@ -18,74 +18,35 @@ func TestMakeURL(t *testing.T) {
 	os.Setenv("SD_EVENT_ID", "499")
 	os.Setenv("SD_PIPELINE_ID", "100")
 
-	storeType := "cache"
-	scope := "events"
-	key := "cache-1"
-	i, _ := makeURL(storeType, scope, key)
-	expected := "http://store.screwdriver.cd/v1/caches/events/499/cache-1"
-	if i.String() != expected {
-		t.Fatalf("Expected '%s' but '%s'", expected, i)
+	// Success test cases
+	testCases := []struct {
+		storeType string
+		scope     string
+		key       string
+		expected  string
+	}{
+		{"cache", "events", "cache-1", "http://store.screwdriver.cd/v1/caches/events/499/cache-1"},
+		{"cache", "pipelines", "cache-1", "http://store.screwdriver.cd/v1/caches/pipelines/100/cache-1"},
+		{"artifacts", "events", "artifact-1", "http://store.screwdriver.cd/v1/builds/10038-ARTIFACTS/artifact-1"},
+		{"artifacts", "builds", "test", "http://store.screwdriver.cd/v1/builds/10038-ARTIFACTS/test"},
+		{"logs", "builds", "testlog", "http://store.screwdriver.cd/v1/builds/10038-testlog"},
+		{"logs", "builds", "step-bookend", "http://store.screwdriver.cd/v1/builds/10038-step-bookend"},
+		{"logs", "pipelines", "test-2", "http://store.screwdriver.cd/v1/builds/10038-test-2"},
 	}
 
-	storeType = "cache"
-	scope = "pipelines"
-	key = "cache-1"
-	i, _ = makeURL(storeType, scope, key)
-	expected = "http://store.screwdriver.cd/v1/caches/pipelines/100/cache-1"
-	if i.String() != expected {
-		t.Fatalf("Expected '%s' but '%s'", expected, i)
+	for _, tc := range testCases {
+		i, _ := makeURL(tc.storeType, tc.scope, tc.key)
+		if i.String() != tc.expected {
+			t.Fatalf("Expected '%s' got '%s'", tc.expected, i)
+		}
 	}
 
-	storeType = "artifacts"
-	scope = "events"
-	key = "artifact-1"
-	i, _ = makeURL(storeType, scope, key)
-	expected = "http://store.screwdriver.cd/v1/builds/10038-ARTIFACTS/artifact-1"
-	if i.String() != expected {
-		t.Fatalf("Expected '%s' but '%s'", expected, i)
-	}
-
-	storeType = "artifacts"
-	scope = "builds"
-	key = "test"
-	i, _ = makeURL(storeType, scope, key)
-	expected = "http://store.screwdriver.cd/v1/builds/10038-ARTIFACTS/test"
-	if i.String() != expected {
-		t.Fatalf("Expected '%s' but '%s'", expected, i)
-	}
-
-	storeType = "logs"
-	scope = "builds"
-	key = "testlog"
-	i, _ = makeURL(storeType, scope, key)
-	expected = "http://store.screwdriver.cd/v1/builds/10038-testlog"
-	if i.String() != expected {
-		t.Fatalf("Expected '%s' but '%s'", expected, i)
-	}
-
-	storeType = "logs"
-	scope = "builds"
-	key = "step-bookend"
-	i, _ = makeURL(storeType, scope, key)
-	expected = "http://store.screwdriver.cd/v1/builds/10038-step-bookend"
-	if i.String() != expected {
-		t.Fatalf("Expected '%s' but '%s'", expected, i)
-	}
-
-	storeType = "logs"
-	scope = "pipelines"
-	key = "test2"
-	i, _ = makeURL(storeType, scope, key)
-	expected = "http://store.screwdriver.cd/v1/builds/10038-test2"
-	if i.String() != expected {
-		t.Fatalf("Expected '%s' but '%s'", expected, i)
-	}
-
+	// Error test case
 	var err error
-	storeType = "invalid"
-	scope = "pipelines"
-	key = "test2"
-	i, err = makeURL(storeType, scope, key)
+	storeType := "invalid"
+	scope := "pipelines"
+	key := "test2"
+	_, err = makeURL(storeType, scope, key)
 	if err == nil {
 		t.Fatalf("Expected error, got nil")
 	}
