@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -46,12 +47,18 @@ type SDError struct {
 
 func getFilePath(url *url.URL) (string) {
 	path := url.Path
-	r := regexp.MustCompile("^/v[0-9]+/caches/(?:events|pipelines|jobs)/(?:[0-9]+)/([\\w-/]+)$")
+	r := regexp.MustCompile("^/v[0-9]+/caches/(?:events|pipelines|jobs)/(?:[0-9]+)/([\\w-/.]+)$")
 	matched := r.FindStringSubmatch(path)
 	if len(matched) < 2 {
 		return ""
 	}
-	return strings.TrimRight(matched[1], "/")
+	filepath := matched[1]
+
+	// trim trailing slashes
+	filepath = strings.TrimRight(filepath, "/")
+
+	// add current directory
+	return "./" + filepath
 }
 
 // Error implements the error interface for SDError
@@ -156,7 +163,10 @@ func (s *sdStore) get(url *url.URL) ([]byte, error) {
 	filePath := getFilePath(url)
 	var file *os.File
 	var err error
+
 	if filePath != "" {
+		dir, _ := filepath.Split(filePath)
+		err := os.MkdirAll(dir, 0777)
 		file, err = os.Create(filePath)
 		if err != nil  {
 		 return nil, err
@@ -188,7 +198,7 @@ func (s *sdStore) get(url *url.URL) ([]byte, error) {
 
 	// Write to file
 	if filePath != "" {
-		_, err = io.Copy(file, res.Body)
+		_, err := file.Write(body)
 	  if err != nil  {
 	  	 return nil, err
 	  }

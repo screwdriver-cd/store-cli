@@ -81,7 +81,9 @@ func get(storeType, scope, key string) error {
 		return err
 	}
 	store := sdstore.NewStore(sdToken)
-	return store.Download(fullURL)
+	_, err = store.Download(fullURL)
+
+	return err
 }
 
 func set(storeType, scope, key, filePath string) error {
