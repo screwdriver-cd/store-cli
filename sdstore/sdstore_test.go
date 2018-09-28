@@ -222,6 +222,47 @@ func TestDownloadWriteBack(t *testing.T) {
 	}
 }
 
+func TestDownloadWriteBackSpecialFile(t *testing.T) {
+	token := "faketoken"
+	testfilepath := "test-data/node_modules/schema/!-_.*'()&@:,.$=+?; space"
+	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/test-data/node_modules/schema/%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space")
+	downloader := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+	called := false
+
+	want := "test-content"
+
+	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
+		called = true
+
+		if r.Method != "GET" {
+			t.Errorf("Called with method %s, want GET", r.Method)
+		}
+	})
+
+	downloader.client = http
+	res, _ := downloader.Download(u)
+
+	if string(res) != want {
+		t.Errorf("Response is %s, want %s", string(res), want)
+	}
+
+	filecontent, err := ioutil.ReadFile("./" + testfilepath)
+	if err != nil {
+		t.Errorf("File content is not written")
+	}
+
+	if string(filecontent) != want {
+		t.Errorf("File content is %s, want %s", string(filecontent), want)
+	}
+
+	if !called {
+		t.Fatalf("The HTTP client was never used.")
+	}
+}
+
 func TestRemove(t *testing.T) {
 	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
