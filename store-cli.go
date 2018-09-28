@@ -93,7 +93,16 @@ func set(storeType, scope, key, filePath string) error {
 		return err
 	}
 	store := sdstore.NewStore(sdToken)
-	return store.Upload(fullURL, filePath)
+
+	var toCompress bool
+
+	if storeType == "cache" {
+		toCompress = true
+	} else {
+		toCompress = false
+	}
+
+	return store.Upload(fullURL, filePath, toCompress)
 }
 
 func remove(storeType, scope, key string) error {

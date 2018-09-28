@@ -2,6 +2,7 @@ package sdstore
 
 import (
 	"fmt"
+	"github.com/mholt/archiver"
 	"io"
 	"io/ioutil"
 	"log"
@@ -20,7 +21,7 @@ const maxRetries = 6
 
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
-	Upload(u *url.URL, filePath string) error
+	Upload(u *url.URL, filePath string, toCompress bool) error
 	Download(url *url.URL) ([]byte, error)
 	Remove(url *url.URL) error
 }
@@ -45,7 +46,7 @@ type SDError struct {
 	Message    string `json:"message"`
 }
 
-func getFilePath(url *url.URL) (string) {
+func getFilePath(url *url.URL) string {
 	path := url.Path
 	r := regexp.MustCompile("^/v[0-9]+/caches/(?:events|pipelines|jobs)/(?:[0-9]+)/([\\w-/.]+)$")
 	matched := r.FindStringSubmatch(path)
@@ -103,17 +104,43 @@ func (s *sdStore) Download(url *url.URL) ([]byte, error) {
 
 // Uploads sends a file to a path within the SD Store. The path is relative to
 // the build/event path within the SD Store, e.g. http://store.screwdriver.cd/builds/abc/<storePath>
-func (s *sdStore) Upload(u *url.URL, filePath string) error {
+func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 	var err error
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
 
-		err := s.putFile(u, "application/x-ndjson", filePath)
-		if err != nil {
-			log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
-			continue
+		if toCompress {
+			var fileName, zipPath string
+			fileName = filepath.Base(filePath)
+			zipPath = fmt.Sprintf("%s.zip", fileName)
+
+			err := archiver.Zip.Make(zipPath, []string{filePath})
+			if err != nil {
+				log.Printf("(Try %d of %d) Unable to zip file: %v", i+1, maxRetries, err)
+				continue
+			}
+
+			err = s.putFile(u, "application/zip", zipPath)
+			errRemove := os.Remove(zipPath)
+
+			if err != nil {
+				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
+				continue
+			}
+
+			if errRemove != nil {
+				log.Printf("Unable to remove zip file: %v", err)
+			}
+
+			return nil
+		} else {
+			err := s.putFile(u, "text/plain", filePath)
+			if err != nil {
+				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
+				continue
+			}
+			return nil
 		}
-		return nil
 	}
 	return fmt.Errorf("posting to %s after %d retries: %v", filePath, maxRetries, err)
 }
@@ -168,8 +195,8 @@ func (s *sdStore) get(url *url.URL) ([]byte, error) {
 		dir, _ := filepath.Split(filePath)
 		err := os.MkdirAll(dir, 0777)
 		file, err = os.Create(filePath)
-		if err != nil  {
-		 return nil, err
+		if err != nil {
+			return nil, err
 		}
 		defer file.Close()
 	}
@@ -199,12 +226,12 @@ func (s *sdStore) get(url *url.URL) ([]byte, error) {
 	// Write to file
 	if filePath != "" {
 		_, err := file.Write(body)
-	  if err != nil  {
-	  	 return nil, err
-	  }
+		if err != nil {
+			return nil, err
+		}
 	}
 
-  return body, nil
+	return body, nil
 }
 
 // putFile writes a file at filePath to a url with a PUT request. It streams the data from disk to save memory
