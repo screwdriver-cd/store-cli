@@ -47,18 +47,24 @@ type SDError struct {
 
 func getFilePath(url *url.URL) (string) {
 	path := url.Path
-	r := regexp.MustCompile("^/v[0-9]+/caches/(?:events|pipelines|jobs)/(?:[0-9]+)/([\\w-/.]+)$")
+	r, err := regexp.Compile("^/v[0-9]+/caches/(?:events|pipelines|jobs)/(?:[0-9]+)/(.+)$")
+
+	if err != nil {
+		return ""
+	}
+
 	matched := r.FindStringSubmatch(path)
 	if len(matched) < 2 {
 		return ""
 	}
-	filepath := matched[1]
 
+	filepath := matched[1]
 	// trim trailing slashes
 	filepath = strings.TrimRight(filepath, "/")
-
 	// add current directory
-	return "./" + filepath
+	filepath = "./" + filepath
+	
+	return filepath
 }
 
 // Error implements the error interface for SDError
@@ -108,7 +114,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string) error {
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
 
-		err := s.putFile(u, "application/x-ndjson", filePath)
+		err := s.putFile(u, "text/plain", filePath)
 		if err != nil {
 			log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
 			continue

@@ -55,23 +55,27 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	var path string
 	switch storeType {
 	case "cache":
-		path = "caches/" + scope + "/" + scopeEnv + "/" + key
+		path = "/caches/" + scope + "/" + scopeEnv + "/" + key
 	case "artifacts":
-		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-ARTIFACTS/" + key
+		path = "/builds/" + os.Getenv("SD_BUILD_ID") + "-ARTIFACTS/" + key
 	case "logs":
-		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-" + key
+		path = "/builds/" + os.Getenv("SD_BUILD_ID") + "-" + key
 	default:
 		path = ""
 	}
 
-	var fullpath string
-	if len(path) > 0 {
-		fullpath = fmt.Sprintf("%s/%s/%s", storeURL, version, path)
-	} else {
+	if len(path) == 0 {
 		return nil, fmt.Errorf("Invalid parameters")
 	}
 
-	return url.Parse(fullpath)
+	var fullpath *url.URL
+	fullpath, err := url.Parse(storeURL + "/" + version)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing store url")
+	}
+	fullpath.Path += path
+
+	return fullpath, nil
 }
 
 func get(storeType, scope, key string) error {
