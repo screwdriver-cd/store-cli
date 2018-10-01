@@ -52,24 +52,25 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 		scopeEnv = os.Getenv("SD_PIPELINE_ID")
 	}
 
+	encoded := url.QueryEscape(key)
+
 	var path string
 	switch storeType {
 	case "cache":
-		path = "caches/" + scope + "/" + scopeEnv + "/" + key
+		path = "caches/" + scope + "/" + scopeEnv + "/" + encoded
 	case "artifacts":
-		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-ARTIFACTS/" + key
+		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-ARTIFACTS/" + encoded
 	case "logs":
-		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-" + key
+		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-" + encoded
 	default:
 		path = ""
 	}
 
-	var fullpath string
-	if len(path) > 0 {
-		fullpath = fmt.Sprintf("%s/%s/%s", storeURL, version, path)
-	} else {
+	if len(path) == 0 {
 		return nil, fmt.Errorf("Invalid parameters")
 	}
+
+	fullpath := fmt.Sprintf("%s/%s/%s", storeURL, version, path)
 
 	return url.Parse(fullpath)
 }
