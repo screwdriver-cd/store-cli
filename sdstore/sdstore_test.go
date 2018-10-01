@@ -1,6 +1,7 @@
 package sdstore
 
 import (
+	"archive/zip"
 	"bytes"
 	"fmt"
 	"io"
@@ -9,6 +10,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -122,9 +125,10 @@ func TestUploadZip(t *testing.T) {
 	called := false
 
 	want := bytes.NewBuffer(nil)
-	f := testZipFile()
+	f := testFile()
 	io.Copy(want, f)
 	f.Close()
+	wantcontent, _ := ioutil.ReadAll(want)
 
 	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
 		called = true
@@ -132,8 +136,22 @@ func TestUploadZip(t *testing.T) {
 		io.Copy(got, r.Body)
 		r.Body.Close()
 
-		if got.String() != want.String() {
-			t.Errorf("Received payload %s, want %s", got, want)
+		content, _ := ioutil.ReadAll(got)
+
+		err := ioutil.WriteFile("../data/emitterdata.zip", content, 0644)
+		if err != nil {
+			panic(err)
+		}
+
+		files, err := Unzip("../data/emitterdata.zip", "../data/test")
+
+		var filecontent []byte
+		if len(files) == 1 {
+			filecontent, err = ioutil.ReadFile(files[0])
+		}
+
+		if string(filecontent[:]) != string(wantcontent[:]) {
+			t.Errorf("Received payload %s, want %s", filecontent, wantcontent)
 		}
 
 		if r.Method != "PUT" {
@@ -152,6 +170,16 @@ func TestUploadZip(t *testing.T) {
 
 		if r.Header.Get("Content-Type") != "application/zip" {
 			t.Errorf("Wrong Content-Type sent to uploader. Got %s, want application/zip", r.Header.Get("Content-Type"))
+		}
+
+		err = os.Remove("../data/emitterdata.zip")
+		if err != nil {
+			panic(err)
+		}
+
+		err = os.RemoveAll("../data/test")
+		if err != nil {
+			panic(err)
 		}
 	})
 	uploader.client = http
@@ -395,4 +423,63 @@ func TestRemoveRetry(t *testing.T) {
 	if callCount != 6 {
 		t.Errorf("Expected 6 retries, got %d", callCount)
 	}
+}
+
+// Taken from https://golangcode.com/unzip-files-in-go/
+func Unzip(src string, dest string) ([]string, error) {
+	var filenames []string
+
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return filenames, err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+
+		rc, err := f.Open()
+		if err != nil {
+			return filenames, err
+		}
+		defer rc.Close()
+
+		// Store filename/path for returning and using later on
+		fpath := filepath.Join(dest, f.Name)
+
+		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
+		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+			return filenames, fmt.Errorf("%s: illegal file path", fpath)
+		}
+
+		filenames = append(filenames, fpath)
+
+		if f.FileInfo().IsDir() {
+
+			// Make Folder
+			os.MkdirAll(fpath, os.ModePerm)
+
+		} else {
+
+			// Make File
+			if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+				return filenames, err
+			}
+
+			outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+			if err != nil {
+				return filenames, err
+			}
+
+			_, err = io.Copy(outFile, rc)
+
+			// Close the file without defer to close before next iteration of loop
+			outFile.Close()
+
+			if err != nil {
+				return filenames, err
+			}
+
+		}
+	}
+	return filenames, nil
 }
