@@ -58,6 +58,14 @@ func testFile() *os.File {
 	return f
 }
 
+func testZipFile() *os.File {
+	f, err := os.Open("../data/emitterdata.zip")
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
 func TestUpload(t *testing.T) {
 	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
@@ -97,7 +105,57 @@ func TestUpload(t *testing.T) {
 		}
 	})
 	uploader.client = http
-	uploader.Upload(u, testFile().Name())
+	uploader.Upload(u, testFile().Name(), false)
+
+	if !called {
+		t.Fatalf("The HTTP client was never used.")
+	}
+}
+
+func TestUploadZip(t *testing.T) {
+	token := "faketoken"
+	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	uploader := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+	called := false
+
+	want := bytes.NewBuffer(nil)
+	f := testZipFile()
+	io.Copy(want, f)
+	f.Close()
+
+	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
+		called = true
+		got := bytes.NewBuffer(nil)
+		io.Copy(got, r.Body)
+		r.Body.Close()
+
+		if got.String() != want.String() {
+			t.Errorf("Received payload %s, want %s", got, want)
+		}
+
+		if r.Method != "PUT" {
+			t.Errorf("Uploaded with method %s, want PUT", r.Method)
+		}
+
+		stat, err := testZipFile().Stat()
+		if err != nil {
+			t.Fatalf("Couldn't stat test file: %v", err)
+		}
+
+		fsize := stat.Size()
+		if r.ContentLength != fsize {
+			t.Errorf("Wrong Content-Length sent to uploader. Got %d, want %d", r.ContentLength, fsize)
+		}
+
+		if r.Header.Get("Content-Type") != "application/zip" {
+			t.Errorf("Wrong Content-Type sent to uploader. Got %s, want application/zip", r.Header.Get("Content-Type"))
+		}
+	})
+	uploader.client = http
+	uploader.Upload(u, testFile().Name(), true)
 
 	if !called {
 		t.Fatalf("The HTTP client was never used.")
@@ -118,7 +176,30 @@ func TestUploadRetry(t *testing.T) {
 		callCount++
 	})
 	uploader.client = http
-	err := uploader.Upload(u, testFile().Name())
+	err := uploader.Upload(u, testFile().Name(), false)
+	if err == nil {
+		t.Error("Expected error from uploader.Upload(), got nil")
+	}
+	if callCount != 6 {
+		t.Errorf("Expected 6 retries, got %d", callCount)
+	}
+}
+
+func TestUploadZipRetry(t *testing.T) {
+	retryScaler = .01
+	token := "faketoken"
+	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	uploader := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+
+	callCount := 0
+	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
+		callCount++
+	})
+	uploader.client = http
+	err := uploader.Upload(u, testFile().Name(), true)
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
 	}
