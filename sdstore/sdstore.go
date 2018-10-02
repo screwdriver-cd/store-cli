@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+  "encoding/json"
 )
 
 var retryScaler = 1.0
@@ -110,10 +111,35 @@ func (s *sdStore) Download(url *url.URL) ([]byte, error) {
 	return nil, fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
 }
 
+func GetMd5Json(path string) (string, error) {
+	m, err := MD5All(path)
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	for path := range m {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	jsonString, err := json.Marshal(m)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonString, nil
+}
+
 // Uploads sends a file to a path within the SD Store. The path is relative to
 // the build/event path within the SD Store, e.g. http://store.screwdriver.cd/builds/abc/<storePath>
 func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 	var err error
+	md5Json, err := GetMd5Json(filePath)
+
+	if err != nil {
+		return fmt.Errorf("Unable to generate md5 of contents, exiting: %v", err)
+	}
+
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
 
@@ -128,7 +154,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 				continue
 			}
 
-			err = s.putFile(u, "application/zip", zipPath)
+			err = s.putFile(u, "application/zip", zipPath, md5Json)
 			errRemove := os.Remove(zipPath)
 
 			if err != nil {
@@ -142,7 +168,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 
 			return nil
 		} else {
-			err := s.putFile(u, "text/plain", filePath)
+			err := s.putFile(u, "text/plain", filePath, md5Json)
 			if err != nil {
 				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
 				continue
@@ -243,7 +269,7 @@ func (s *sdStore) get(url *url.URL) ([]byte, error) {
 }
 
 // putFile writes a file at filePath to a url with a PUT request. It streams the data from disk to save memory
-func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error {
+func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string, md5s string) error {
 	input, err := os.Open(filePath)
 	if err != nil {
 		return err
@@ -260,7 +286,7 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error 
 
 	done := make(chan error)
 	go func() {
-		_, err := s.put(url, bodyType, reader, fsize)
+		_, err := s.put(url, bodyType, reader, fsize, md5s)
 		if err != nil {
 			done <- err
 			return
@@ -278,7 +304,7 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error 
 }
 
 // PUT request to SD store
-func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int64) ([]byte, error) {
+func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int64, md5s string) ([]byte, error) {
 	req, err := http.NewRequest("PUT", url.String(), payload)
 	if err != nil {
 		return nil, err
@@ -286,6 +312,7 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
 	req.Header.Set("Content-Type", bodyType)
+	req.Header.Set("X-MD5", md5s)
 	req.ContentLength = size
 
 	res, err := s.client.Do(req)
