@@ -13,7 +13,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestMakeURL(t *testing.T) {
-	os.Setenv("SD_STORE_URL", "http://store.screwdriver.cd")
+	os.Setenv("SD_STORE_URL", "http://store.screwdriver.cd/v1/")
 	os.Setenv("SD_BUILD_ID", "10038")
 	os.Setenv("SD_EVENT_ID", "499")
 	os.Setenv("SD_PIPELINE_ID", "100")

@@ -40,7 +40,6 @@ func finalRecover() {
 // makeURL creates the fully-qualified url for a given Store path
 func makeURL(storeType, scope, key string) (*url.URL, error) {
 	storeURL := os.Getenv("SD_STORE_URL")
-	version := "v1"
 
 	var scopeEnv string
 	switch scope {
@@ -70,7 +69,7 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 		return nil, fmt.Errorf("Invalid parameters")
 	}
 
-	fullpath := fmt.Sprintf("%s/%s/%s", storeURL, version, path)
+	fullpath := fmt.Sprintf("%s%s", storeURL, path)
 
 	return url.Parse(fullpath)
 }
