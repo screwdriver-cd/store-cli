@@ -1,16 +1,14 @@
 // Taken and modified from https://blog.golang.org/pipelines
 
-package md5helper
+package sdstore
 
 import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 )
 

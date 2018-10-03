@@ -1,6 +1,7 @@
 package sdstore
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/mholt/archiver"
 	"io"
@@ -13,7 +14,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-  "encoding/json"
 )
 
 var retryScaler = 1.0
@@ -114,20 +114,15 @@ func (s *sdStore) Download(url *url.URL) ([]byte, error) {
 func GetMd5Json(path string) (string, error) {
 	m, err := MD5All(path)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	var paths []string
-	for path := range m {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
 	jsonString, err := json.Marshal(m)
 
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return jsonString, nil
+	return string(jsonString[:]), nil
 }
 
 // Uploads sends a file to a path within the SD Store. The path is relative to

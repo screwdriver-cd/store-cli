@@ -102,6 +102,11 @@ func TestUpload(t *testing.T) {
 			t.Fatalf("Couldn't stat test file: %v", err)
 		}
 
+		wantmd5 := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\"}")
+		if r.Header.Get("X-MD5") != wantmd5 {
+			t.Errorf("Wrong X-MD5 header sent to uploader. Got %s, want %s", r.Header.Get("X-MD5"), wantmd5)
+		}
+
 		fsize := stat.Size()
 		if r.ContentLength != fsize {
 			t.Errorf("Wrong Content-Length sent to uploader. Got %d, want %d", r.ContentLength, fsize)
@@ -170,6 +175,11 @@ func TestUploadZip(t *testing.T) {
 
 		if r.Header.Get("Content-Type") != "application/zip" {
 			t.Errorf("Wrong Content-Type sent to uploader. Got %s, want application/zip", r.Header.Get("Content-Type"))
+		}
+
+		wantmd5 := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\"}")
+		if r.Header.Get("X-MD5") != wantmd5 {
+			t.Errorf("Wrong X-MD5 header sent to uploader. Got %s, want %s", r.Header.Get("X-MD5"), wantmd5)
 		}
 
 		err = os.Remove("../data/emitterdata.zip")
@@ -418,10 +428,24 @@ func TestRemoveRetry(t *testing.T) {
 	removeRes.client = http
 	err := removeRes.Remove(u)
 	if err == nil {
-		t.Error("Expected error from removeRes.Remove(), got nil")
+		t.Errorf("Expected error from removeRes.Remove(), got nil")
 	}
 	if callCount != 6 {
 		t.Errorf("Expected 6 retries, got %d", callCount)
+	}
+}
+
+func TestGetMd5Json(t *testing.T) {
+	md5Json, err := GetMd5Json("../data/")
+
+	if err != nil {
+		panic(err)
+	}
+
+	want := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\"}")
+
+	if md5Json != want {
+		t.Errorf("Expected %s, got %s", want, md5Json)
 	}
 }
 
