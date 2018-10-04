@@ -6,7 +6,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -17,6 +17,28 @@ type result struct {
 	path string
 	sum  string
 	err  error
+}
+
+func hashFromPath(filePath string) (string, error) {
+	var md5str string
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return md5str, err
+	}
+
+	defer file.Close()
+
+	md5hash := md5.New()
+	if _, err := io.Copy(md5hash, file); err != nil {
+		return md5str, err
+	}
+
+	md5hashInBytes := md5hash.Sum(nil)[:16]
+	md5str = hex.EncodeToString(md5hashInBytes)
+
+	return md5str, nil
+
 }
 
 // sumFiles starts goroutines to walk the directory tree at root and digest each
@@ -39,10 +61,9 @@ func sumFiles(done <-chan struct{}, root string) (<-chan result, <-chan error) {
 			}
 			wg.Add(1)
 			go func() {
-				data, err := ioutil.ReadFile(path)
-				hash := md5.Sum(data)
+				hash, err := hashFromPath(path)
 				select {
-				case c <- result{path, hex.EncodeToString(hash[:]), err}:
+				case c <- result{path, hash, err}:
 				case <-done:
 				}
 				wg.Done()
