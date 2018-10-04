@@ -228,6 +228,7 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 	}
 
 	defer res.Body.Close()
+
 	if res.StatusCode/100 == 5 {
 		return nil, fmt.Errorf("response code %d", res.StatusCode)
 	}
@@ -338,7 +339,7 @@ func Unzip(src string, dest string) ([]string, error) {
 		fpath := filepath.Join(dest, f.Name)
 
 		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
-		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+		if dest != "/" && !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
 			return filenames, fmt.Errorf("%s: illegal file path", fpath)
 		}
 

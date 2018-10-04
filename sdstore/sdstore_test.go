@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -39,6 +40,32 @@ func makeFakeHTTPClient(t *testing.T, code int, body string, v func(r *http.Requ
 		w.WriteHeader(code)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("test-content"))
+	}))
+
+	transport := &http.Transport{
+		Proxy: func(req *http.Request) (*url.URL, error) {
+			return url.Parse(server.URL)
+		},
+	}
+
+	return &http.Client{Transport: transport}
+}
+
+func makeFakeZipHTTPClient(t *testing.T, code int, body string, v func(r *http.Request)) *http.Client {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wantToken := "faketoken"
+		wantTokenHeader := fmt.Sprintf("Bearer %s", wantToken)
+
+		validateHeader(t, "Authorization", wantTokenHeader)(r)
+		if v != nil {
+			v(r)
+		}
+
+		w.WriteHeader(code)
+		w.Header().Set("Content-Type", "application/zip")
+		filePath, _ := filepath.Abs("../data/test.zip")
+		fileContent, _ := ioutil.ReadFile(filePath)
+		w.Write(fileContent)
 	}))
 
 	transport := &http.Transport{
@@ -257,6 +284,45 @@ func TestDownload(t *testing.T) {
 
 	if string(res) != want {
 		t.Errorf("Response is %s, want %s", string(res), want)
+	}
+
+	if !called {
+		t.Fatalf("The HTTP client was never used.")
+	}
+}
+
+func TestDownloadZip(t *testing.T) {
+	token := "faketoken"
+	testfilepath := "../data/test1.zip"
+	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfilepath)
+	downloader := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+	called := false
+
+	http := makeFakeZipHTTPClient(t, 200, "OK", func(r *http.Request) {
+		called = true
+
+		if r.Method != "GET" {
+			t.Errorf("Called with method %s, want GET", r.Method)
+		}
+	})
+
+	downloader.client = http
+	_, _ = downloader.Download(u, true)
+
+	want, _ := ioutil.ReadFile("../data/emitterdata")
+	got, _ := ioutil.ReadFile("/tmp/test/emitterdata")
+
+	err := os.RemoveAll("/tmp/test")
+
+	if err != nil {
+		panic(err)
+	}
+
+	if string(got) != string(want) {
+		t.Errorf("Response is %s, want %s", got, want)
 	}
 
 	if !called {
