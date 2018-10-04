@@ -81,7 +81,16 @@ func get(storeType, scope, key string) error {
 		return err
 	}
 	store := sdstore.NewStore(sdToken)
-	_, err = store.Download(fullURL)
+
+	var toExtract bool
+
+	if storeType == "cache" {
+		toExtract = true
+	} else {
+		toExtract = false
+	}
+
+	_, err = store.Download(fullURL, toExtract)
 
 	return err
 }

@@ -1,6 +1,7 @@
 package sdstore
 
 import (
+	"archive/zip"
 	"fmt"
 	"github.com/mholt/archiver"
 	"io"
@@ -22,7 +23,7 @@ const maxRetries = 6
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
 	Upload(u *url.URL, filePath string, toCompress bool) error
-	Download(url *url.URL) ([]byte, error)
+	Download(url *url.URL, toExtract bool) ([]byte, error)
 	Remove(url *url.URL) error
 }
 
@@ -92,13 +93,13 @@ func (s *sdStore) Remove(u *url.URL) error {
 }
 
 // Download a file from a path within the SD Store
-func (s *sdStore) Download(url *url.URL) ([]byte, error) {
+func (s *sdStore) Download(url *url.URL, toExtract bool) ([]byte, error) {
 	var err error
 
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
 
-		res, err := s.get(url)
+		res, err := s.get(url, toExtract)
 		if err != nil {
 			log.Printf("(Try %d of %d) error received from file download: %v", i+1, maxRetries, err)
 			continue
@@ -120,9 +121,14 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 		if toCompress {
 			var fileName, zipPath string
 			fileName = filepath.Base(filePath)
-			zipPath = fmt.Sprintf("%s.zip", fileName)
+			zipPath, err := filepath.Abs(fmt.Sprintf("%s.zip", fileName))
 
-			err := archiver.Zip.Make(zipPath, []string{filePath})
+			if err != nil {
+				log.Printf("(Try %d of %d) Unable to determine filepath: %v", i+1, maxRetries, err)
+				continue
+			}
+
+			err = archiver.Zip.Make(zipPath, []string{filePath})
 			if err != nil {
 				log.Printf("(Try %d of %d) Unable to zip file: %v", i+1, maxRetries, err)
 				continue
@@ -194,7 +200,7 @@ func (s *sdStore) remove(url *url.URL) ([]byte, error) {
 }
 
 // GET request from SD Store
-func (s *sdStore) get(url *url.URL) ([]byte, error) {
+func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 	filePath := getFilePath(url)
 	var file *os.File
 	var err error
@@ -222,6 +228,7 @@ func (s *sdStore) get(url *url.URL) ([]byte, error) {
 	}
 
 	defer res.Body.Close()
+
 	if res.StatusCode/100 == 5 {
 		return nil, fmt.Errorf("response code %d", res.StatusCode)
 	}
@@ -236,6 +243,15 @@ func (s *sdStore) get(url *url.URL) ([]byte, error) {
 		_, err := file.Write(body)
 		if err != nil {
 			return nil, err
+		}
+
+		if toExtract {
+			_, err = Unzip(filePath, "/")
+			if err != nil {
+				log.Printf("Could not unzip file %s: %s", filePath, err)
+			} else {
+				os.RemoveAll(filePath)
+			}
 		}
 	}
 
@@ -299,4 +315,63 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 	}
 
 	return handleResponse(res)
+}
+
+// Taken from https://golangcode.com/unzip-files-in-go/
+func Unzip(src string, dest string) ([]string, error) {
+	var filenames []string
+
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return filenames, err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+
+		rc, err := f.Open()
+		if err != nil {
+			return filenames, err
+		}
+		defer rc.Close()
+
+		// Store filename/path for returning and using later on
+		fpath := filepath.Join(dest, f.Name)
+
+		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
+		if dest != "/" && !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+			return filenames, fmt.Errorf("%s: illegal file path", fpath)
+		}
+
+		filenames = append(filenames, fpath)
+
+		if f.FileInfo().IsDir() {
+
+			// Make Folder
+			os.MkdirAll(fpath, os.ModePerm)
+
+		} else {
+
+			// Make File
+			if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+				return filenames, err
+			}
+
+			outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+			if err != nil {
+				return filenames, err
+			}
+
+			_, err = io.Copy(outFile, rc)
+
+			// Close the file without defer to close before next iteration of loop
+			outFile.Close()
+
+			if err != nil {
+				return filenames, err
+			}
+
+		}
+	}
+	return filenames, nil
 }
