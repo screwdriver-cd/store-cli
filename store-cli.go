@@ -182,7 +182,7 @@ func main() {
 			Name:  "remove",
 			Usage: "Remove an existing item from the store",
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) <= 1 {
+				if len(c.Args()) == 0 {
 					return cli.ShowAppHelp(c)
 				}
 				scope := c.String("scope")
