@@ -45,11 +45,11 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 
 	var scopeEnv string
 	switch scope {
-	case "events":
+	case "event":
 		scopeEnv = os.Getenv("SD_EVENT_ID")
-	case "jobs":
+	case "job":
 		scopeEnv = os.Getenv("SD_JOB_ID")
-	case "pipelines":
+	case "pipeline":
 		scopeEnv = os.Getenv("SD_PIPELINE_ID")
 	}
 
@@ -63,10 +63,10 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 
 		key = strings.TrimRight(key, "/")
 		encoded := url.QueryEscape(key)
-		path = "caches/" + scope + "/" + scopeEnv + "/" + encoded
-	case "artifacts":
+		path = "caches/" + scope + "s/" + scopeEnv + "/" + encoded
+	case "artifact":
 		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-ARTIFACTS/" + key
-	case "logs":
+	case "log":
 		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-" + key
 	default:
 		path = ""
@@ -168,6 +168,7 @@ func main() {
 				}
 				scope := c.String("scope")
 				storeType := c.String("type")
+
 				key := c.Args().Get(0)
 				err := get(storeType, scope, key)
 				if err != nil {

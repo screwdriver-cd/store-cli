@@ -293,7 +293,11 @@ func TestDownload(t *testing.T) {
 
 func TestDownloadZip(t *testing.T) {
 	token := "faketoken"
-	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/tmp%2Ftest%2F1%2F2%2F3%2F4")
+	abspath, _ := filepath.Abs("./")
+	testfilepath := abspath + "/../data/test.zip"
+	testfilepath = url.QueryEscape(testfilepath)
+
+	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfilepath)
 	downloader := &sdStore{
 		token,
 		&http.Client{Timeout: 10 * time.Second},
@@ -312,7 +316,7 @@ func TestDownloadZip(t *testing.T) {
 	_, _ = downloader.Download(u, true)
 
 	want, _ := ioutil.ReadFile("../data/emitterdata")
-	got, _ := ioutil.ReadFile("/tmp/test/emitterdata")
+	got, _ := ioutil.ReadFile(abspath + "/../data/tmp/test/emitterdata")
 
 	err := os.RemoveAll("/tmp/test")
 
