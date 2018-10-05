@@ -293,8 +293,7 @@ func TestDownload(t *testing.T) {
 
 func TestDownloadZip(t *testing.T) {
 	token := "faketoken"
-	testfilepath := "../data/test1.zip"
-	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfilepath)
+	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/tmp%2Ftest%2F1%2F2%2F3%2F4")
 	downloader := &sdStore{
 		token,
 		&http.Client{Timeout: 10 * time.Second},

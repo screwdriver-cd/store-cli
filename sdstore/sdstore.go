@@ -65,8 +65,6 @@ func getFilePath(u *url.URL) string {
 	filepath = strings.TrimRight(filepath, "/")
 	// decode
 	filepath, _ = url.QueryUnescape(filepath)
-	// add current directory
-	filepath = "./" + filepath
 
 	return filepath
 }
@@ -123,6 +121,8 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			fileName = filepath.Base(filePath)
 			zipPath, err := filepath.Abs(fmt.Sprintf("%s.zip", fileName))
 
+			fmt.Printf("===============filepath=%v\n", filePath)
+
 			if err != nil {
 				log.Printf("(Try %d of %d) Unable to determine filepath: %v", i+1, maxRetries, err)
 				continue
@@ -134,17 +134,18 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 				continue
 			}
 
+			fmt.Printf("===============zippath=%v\n", zipPath)
 			err = s.putFile(u, "application/zip", zipPath)
-			errRemove := os.Remove(zipPath)
+			// errRemove := os.Remove(zipPath)
 
 			if err != nil {
 				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
 				continue
 			}
 
-			if errRemove != nil {
-				log.Printf("Unable to remove zip file: %v", err)
-			}
+			// if errRemove != nil {
+			// 	log.Printf("Unable to remove zip file: %v", err)
+			// }
 
 			return nil
 		} else {
@@ -204,11 +205,16 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 	filePath := getFilePath(url)
 	var file *os.File
 	var err error
+	var dir string
 
+	fmt.Printf("=======filePath GET %v\n", filePath)
 	if filePath != "" {
-		dir, _ := filepath.Split(filePath)
+		dir, _ = filepath.Split(filePath)
+
+		fmt.Printf("=======DIR GET %v\n", dir)
 		err := os.MkdirAll(dir, 0777)
-		file, err = os.Create(filePath)
+
+		file, err = os.Create(filePath + ".zip")
 		if err != nil {
 			return nil, err
 		}
@@ -246,11 +252,13 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 		}
 
 		if toExtract {
-			_, err = Unzip(filePath, "/")
+			zipfile := filePath + ".zip"
+			fmt.Printf("=========unzipfilepath %v\n", filePath)
+			_, err = Unzip(zipfile, dir)
 			if err != nil {
 				log.Printf("Could not unzip file %s: %s", filePath, err)
 			} else {
-				os.RemoveAll(filePath)
+				os.Remove(zipfile)
 			}
 		}
 	}
