@@ -85,7 +85,6 @@ func get(storeType, scope, key string) error {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 
-	fmt.Printf("=======URL IS %v\n", fullURL)
 	if err != nil {
 		return err
 	}
@@ -107,7 +106,7 @@ func get(storeType, scope, key string) error {
 func set(storeType, scope, filePath string) error {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, filePath)
-	fmt.Printf("=======URL IS %v\n", fullURL)
+
 	if err != nil {
 		return err
 	}
@@ -127,7 +126,7 @@ func set(storeType, scope, filePath string) error {
 func remove(storeType, scope, key string) error {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
-	fmt.Printf("=======URL IS %v\n", fullURL)
+
 	if err != nil {
 		return err
 	}
@@ -163,7 +162,7 @@ func main() {
 			Name:  "get",
 			Usage: "Get a new item from the store",
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) > 1 {
+				if len(c.Args()) != 1 {
 					return cli.ShowAppHelp(c)
 				}
 				scope := c.String("scope")
