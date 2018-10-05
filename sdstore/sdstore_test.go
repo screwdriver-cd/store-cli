@@ -102,11 +102,6 @@ func TestUpload(t *testing.T) {
 			t.Fatalf("Couldn't stat test file: %v", err)
 		}
 
-		wantmd5 := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\"}")
-		if r.Header.Get("X-MD5") != wantmd5 {
-			t.Errorf("Wrong X-MD5 header sent to uploader. Got %s, want %s", r.Header.Get("X-MD5"), wantmd5)
-		}
-
 		fsize := stat.Size()
 		if r.ContentLength != fsize {
 			t.Errorf("Wrong Content-Length sent to uploader. Got %d, want %d", r.ContentLength, fsize)
@@ -127,7 +122,7 @@ func TestUploadZip(t *testing.T) {
 		token,
 		&http.Client{Timeout: 10 * time.Second},
 	}
-	called := false
+	called := 0
 
 	want := bytes.NewBuffer(nil)
 	f := testFile()
@@ -136,67 +131,70 @@ func TestUploadZip(t *testing.T) {
 	wantcontent, _ := ioutil.ReadAll(want)
 
 	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
-		called = true
+		contentType := r.Header.Get("Content-Type")
+		called++
 		got := bytes.NewBuffer(nil)
 		io.Copy(got, r.Body)
 		r.Body.Close()
 
 		content, _ := ioutil.ReadAll(got)
 
-		err := ioutil.WriteFile("../data/emitterdata.zip", content, 0644)
-		if err != nil {
-			panic(err)
-		}
+		if contentType == "application/zip" {
+			err := ioutil.WriteFile("../data/emitterdata.zip", content, 0644)
+			if err != nil {
+				panic(err)
+			}
 
-		files, err := Unzip("../data/emitterdata.zip", "../data/test")
+			files, err := Unzip("../data/emitterdata.zip", "../data/test")
 
-		var filecontent []byte
-		if len(files) == 1 {
-			filecontent, err = ioutil.ReadFile(files[0])
-		}
+			var filecontent []byte
+			if len(files) == 1 {
+				filecontent, err = ioutil.ReadFile(files[0])
+			}
 
-		if string(filecontent[:]) != string(wantcontent[:]) {
-			t.Errorf("Received payload %s, want %s", filecontent, wantcontent)
-		}
+			if string(filecontent[:]) != string(wantcontent[:]) {
+				t.Errorf("Received payload %s, want %s", filecontent, wantcontent)
+			}
 
-		if r.Method != "PUT" {
-			t.Errorf("Uploaded with method %s, want PUT", r.Method)
-		}
+			if r.Method != "PUT" {
+				t.Errorf("Uploaded with method %s, want PUT", r.Method)
+			}
 
-		stat, err := testZipFile().Stat()
-		if err != nil {
-			t.Fatalf("Couldn't stat test file: %v", err)
-		}
+			stat, err := testZipFile().Stat()
+			if err != nil {
+				t.Fatalf("Couldn't stat test file: %v", err)
+			}
 
-		fsize := stat.Size()
-		if r.ContentLength != fsize {
-			t.Errorf("Wrong Content-Length sent to uploader. Got %d, want %d", r.ContentLength, fsize)
-		}
+			fsize := stat.Size()
+			if r.ContentLength != fsize {
+				t.Errorf("Wrong Content-Length sent to uploader. Got %d, want %d", r.ContentLength, fsize)
+			}
 
-		if r.Header.Get("Content-Type") != "application/zip" {
-			t.Errorf("Wrong Content-Type sent to uploader. Got %s, want application/zip", r.Header.Get("Content-Type"))
-		}
+			err = os.Remove("../data/emitterdata.zip")
+			if err != nil {
+				panic(err)
+			}
 
-		wantmd5 := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\"}")
-		if r.Header.Get("X-MD5") != wantmd5 {
-			t.Errorf("Wrong X-MD5 header sent to uploader. Got %s, want %s", r.Header.Get("X-MD5"), wantmd5)
-		}
+			err = os.RemoveAll("../data/test")
+			if err != nil {
+				panic(err)
+			}
+		} else if contentType == "application/json" {
+			md5Json, _ := ioutil.ReadFile("emitterdata_md5.json")
+			wantmd5 := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\"}")
 
-		err = os.Remove("../data/emitterdata.zip")
-		if err != nil {
-			panic(err)
-		}
-
-		err = os.RemoveAll("../data/test")
-		if err != nil {
-			panic(err)
+			if string(md5Json) != wantmd5 {
+				t.Errorf("Expected content of md5 json to be %s, got %s", md5Json, wantmd5)
+			}
+		} else {
+			t.Errorf("Wrong content type, expected one of application/zip or application/json")
 		}
 	})
 	uploader.client = http
 	uploader.Upload(u, testFile().Name(), true)
 
-	if !called {
-		t.Fatalf("The HTTP client was never used.")
+	if called > 2 || called == 0 {
+		t.Fatalf("The HTTP client was not called as expected")
 	}
 }
 
@@ -235,6 +233,7 @@ func TestUploadZipRetry(t *testing.T) {
 	callCount := 0
 	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
 		callCount++
+		os.Remove("emitterdata_md5.json")
 	})
 	uploader.client = http
 	err := uploader.Upload(u, testFile().Name(), true)
@@ -435,8 +434,9 @@ func TestRemoveRetry(t *testing.T) {
 	}
 }
 
-func TestGetMd5Json(t *testing.T) {
-	md5Json, err := GetMd5Json("../data/")
+func TestGenerateMd5Json(t *testing.T) {
+	md5Json, err := GenerateMd5Json("../data/")
+	md5Content, err := ioutil.ReadFile(md5Json)
 
 	if err != nil {
 		panic(err)
@@ -444,7 +444,9 @@ func TestGetMd5Json(t *testing.T) {
 
 	want := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\"}")
 
-	if md5Json != want {
+	os.Remove(md5Json)
+
+	if string(md5Content) != want {
 		t.Errorf("Expected %s, got %s", want, md5Json)
 	}
 }

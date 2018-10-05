@@ -111,7 +111,7 @@ func (s *sdStore) Download(url *url.URL) ([]byte, error) {
 	return nil, fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
 }
 
-func GetMd5Json(path string) (string, error) {
+func GenerateMd5Json(path string) (string, error) {
 	m, err := MD5All(path)
 	if err != nil {
 		return "", err
@@ -122,34 +122,61 @@ func GetMd5Json(path string) (string, error) {
 		return "", err
 	}
 
-	return string(jsonString[:]), nil
+	var md5Path string
+	md5Path = fmt.Sprintf("%s_md5.json", filepath.Base(path))
+
+	jsonFile, err := os.Create(md5Path)
+
+	if err != nil {
+		return "", err
+	}
+	defer jsonFile.Close()
+
+	jsonFile.Write(jsonString)
+	jsonFile.Close()
+
+	return md5Path, nil
 }
 
 // Uploads sends a file to a path within the SD Store. The path is relative to
 // the build/event path within the SD Store, e.g. http://store.screwdriver.cd/builds/abc/<storePath>
 func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 	var err error
-	md5Json, err := GetMd5Json(filePath)
-
-	if err != nil {
-		return fmt.Errorf("Unable to generate md5 of contents, exiting: %v", err)
-	}
 
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
 
 		if toCompress {
-			var fileName, zipPath string
+			var fileName string
 			fileName = filepath.Base(filePath)
+
+			md5Json, err := GenerateMd5Json(filePath)
+			if err != nil {
+				log.Printf("(Try %d of %d) error received from generating md5: %v", i+1, maxRetries, err)
+				continue
+			}
+
+			err = s.putFile(u, "application/json", md5Json)
+			if err != nil {
+				log.Printf("(Try %d of %d) error received from uploading md5 json: %v", i+1, maxRetries, err)
+				continue
+			}
+
+			err = os.Remove(md5Json)
+			if err != nil {
+				log.Printf("Unable to remove md5 file from path: %s, continuing", md5Json)
+			}
+
+			var zipPath string
 			zipPath = fmt.Sprintf("%s.zip", fileName)
 
-			err := archiver.Zip.Make(zipPath, []string{filePath})
+			err = archiver.Zip.Make(zipPath, []string{filePath})
 			if err != nil {
 				log.Printf("(Try %d of %d) Unable to zip file: %v", i+1, maxRetries, err)
 				continue
 			}
 
-			err = s.putFile(u, "application/zip", zipPath, md5Json)
+			err = s.putFile(u, "application/zip", zipPath)
 			errRemove := os.Remove(zipPath)
 
 			if err != nil {
@@ -163,7 +190,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 
 			return nil
 		} else {
-			err := s.putFile(u, "text/plain", filePath, md5Json)
+			err := s.putFile(u, "text/plain", filePath)
 			if err != nil {
 				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
 				continue
@@ -264,7 +291,7 @@ func (s *sdStore) get(url *url.URL) ([]byte, error) {
 }
 
 // putFile writes a file at filePath to a url with a PUT request. It streams the data from disk to save memory
-func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string, md5s string) error {
+func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error {
 	input, err := os.Open(filePath)
 	if err != nil {
 		return err
@@ -281,7 +308,7 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string, md5s s
 
 	done := make(chan error)
 	go func() {
-		_, err := s.put(url, bodyType, reader, fsize, md5s)
+		_, err := s.put(url, bodyType, reader, fsize)
 		if err != nil {
 			done <- err
 			return
@@ -299,7 +326,7 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string, md5s s
 }
 
 // PUT request to SD store
-func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int64, md5s string) ([]byte, error) {
+func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int64) ([]byte, error) {
 	req, err := http.NewRequest("PUT", url.String(), payload)
 	if err != nil {
 		return nil, err
@@ -307,7 +334,6 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
 	req.Header.Set("Content-Type", bodyType)
-	req.Header.Set("X-MD5", md5s)
 	req.ContentLength = size
 
 	res, err := s.client.Do(req)
