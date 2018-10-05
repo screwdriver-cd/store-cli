@@ -1,7 +1,6 @@
 package sdstore
 
 import (
-	"archive/zip"
 	"bytes"
 	"fmt"
 	"io"
@@ -11,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 )
@@ -42,6 +40,32 @@ func makeFakeHTTPClient(t *testing.T, code int, body string, v func(r *http.Requ
 		w.WriteHeader(code)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("test-content"))
+	}))
+
+	transport := &http.Transport{
+		Proxy: func(req *http.Request) (*url.URL, error) {
+			return url.Parse(server.URL)
+		},
+	}
+
+	return &http.Client{Transport: transport}
+}
+
+func makeFakeZipHTTPClient(t *testing.T, code int, body string, v func(r *http.Request)) *http.Client {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wantToken := "faketoken"
+		wantTokenHeader := fmt.Sprintf("Bearer %s", wantToken)
+
+		validateHeader(t, "Authorization", wantTokenHeader)(r)
+		if v != nil {
+			v(r)
+		}
+
+		w.WriteHeader(code)
+		w.Header().Set("Content-Type", "application/zip")
+		filePath, _ := filepath.Abs("../data/test.zip")
+		fileContent, _ := ioutil.ReadFile(filePath)
+		w.Write(fileContent)
 	}))
 
 	transport := &http.Transport{
@@ -265,10 +289,49 @@ func TestDownload(t *testing.T) {
 	})
 
 	downloader.client = http
-	res, _ := downloader.Download(u)
+	res, _ := downloader.Download(u, false)
 
 	if string(res) != want {
 		t.Errorf("Response is %s, want %s", string(res), want)
+	}
+
+	if !called {
+		t.Fatalf("The HTTP client was never used.")
+	}
+}
+
+func TestDownloadZip(t *testing.T) {
+	token := "faketoken"
+	testfilepath := "../data/test1.zip"
+	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfilepath)
+	downloader := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+	called := false
+
+	http := makeFakeZipHTTPClient(t, 200, "OK", func(r *http.Request) {
+		called = true
+
+		if r.Method != "GET" {
+			t.Errorf("Called with method %s, want GET", r.Method)
+		}
+	})
+
+	downloader.client = http
+	_, _ = downloader.Download(u, true)
+
+	want, _ := ioutil.ReadFile("../data/emitterdata")
+	got, _ := ioutil.ReadFile("/tmp/test/emitterdata")
+
+	err := os.RemoveAll("/tmp/test")
+
+	if err != nil {
+		panic(err)
+	}
+
+	if string(got) != string(want) {
+		t.Errorf("Response is %s, want %s", got, want)
 	}
 
 	if !called {
@@ -290,7 +353,7 @@ func TestDownloadRetry(t *testing.T) {
 		callCount++
 	})
 	downloader.client = http
-	_, err := downloader.Download(u)
+	_, err := downloader.Download(u, false)
 	if err == nil {
 		t.Error("Expected error from downloader.Download(), got nil")
 	}
@@ -320,7 +383,7 @@ func TestDownloadWriteBack(t *testing.T) {
 	})
 
 	downloader.client = http
-	res, _ := downloader.Download(u)
+	res, _ := downloader.Download(u, false)
 
 	if string(res) != want {
 		t.Errorf("Response is %s, want %s", string(res), want)
@@ -361,7 +424,7 @@ func TestDownloadWriteBackSpecialFile(t *testing.T) {
 	})
 
 	downloader.client = http
-	res, _ := downloader.Download(u)
+	res, _ := downloader.Download(u, false)
 
 	if string(res) != want {
 		t.Errorf("Response is %s, want %s", string(res), want)
@@ -442,70 +505,11 @@ func TestGenerateMd5Json(t *testing.T) {
 		panic(err)
 	}
 
-	want := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\"}")
+	want := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\",\"../data/test.zip\":\"052925051a70c359e1985ef4a6e88334\"}")
 
 	os.Remove(md5Json)
 
 	if string(md5Content) != want {
-		t.Errorf("Expected %s, got %s", want, md5Json)
+		t.Errorf("Expected %s, got %s", want, md5Content)
 	}
-}
-
-// Taken from https://golangcode.com/unzip-files-in-go/
-func Unzip(src string, dest string) ([]string, error) {
-	var filenames []string
-
-	r, err := zip.OpenReader(src)
-	if err != nil {
-		return filenames, err
-	}
-	defer r.Close()
-
-	for _, f := range r.File {
-
-		rc, err := f.Open()
-		if err != nil {
-			return filenames, err
-		}
-		defer rc.Close()
-
-		// Store filename/path for returning and using later on
-		fpath := filepath.Join(dest, f.Name)
-
-		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
-		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return filenames, fmt.Errorf("%s: illegal file path", fpath)
-		}
-
-		filenames = append(filenames, fpath)
-
-		if f.FileInfo().IsDir() {
-
-			// Make Folder
-			os.MkdirAll(fpath, os.ModePerm)
-
-		} else {
-
-			// Make File
-			if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-				return filenames, err
-			}
-
-			outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-			if err != nil {
-				return filenames, err
-			}
-
-			_, err = io.Copy(outFile, rc)
-
-			// Close the file without defer to close before next iteration of loop
-			outFile.Close()
-
-			if err != nil {
-				return filenames, err
-			}
-
-		}
-	}
-	return filenames, nil
 }

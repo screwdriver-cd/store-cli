@@ -40,7 +40,6 @@ func finalRecover() {
 // makeURL creates the fully-qualified url for a given Store path
 func makeURL(storeType, scope, key string) (*url.URL, error) {
 	storeURL := os.Getenv("SD_STORE_URL")
-	version := "v1"
 
 	var scopeEnv string
 	switch scope {
@@ -70,7 +69,7 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 		return nil, fmt.Errorf("Invalid parameters")
 	}
 
-	fullpath := fmt.Sprintf("%s/%s/%s", storeURL, version, path)
+	fullpath := fmt.Sprintf("%s%s", storeURL, path)
 
 	return url.Parse(fullpath)
 }
@@ -82,7 +81,16 @@ func get(storeType, scope, key string) error {
 		return err
 	}
 	store := sdstore.NewStore(sdToken)
-	_, err = store.Download(fullURL)
+
+	var toExtract bool
+
+	if storeType == "cache" {
+		toExtract = true
+	} else {
+		toExtract = false
+	}
+
+	_, err = store.Download(fullURL, toExtract)
 
 	return err
 }
@@ -183,7 +191,7 @@ func main() {
 			Name:  "remove",
 			Usage: "Remove an existing item from the store",
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) <= 1 {
+				if len(c.Args()) == 0 {
 					return cli.ShowAppHelp(c)
 				}
 				scope := c.String("scope")
