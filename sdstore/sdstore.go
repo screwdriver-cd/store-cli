@@ -66,6 +66,11 @@ func getFilePath(u *url.URL) string {
 	// decode
 	filepath, _ = url.QueryUnescape(filepath)
 
+	// relative path
+	// TODO: when download, what to do? since it's not relative to the original zip
+	if len(filepath) > 0 && strings.HasPrefix(filepath, "/") == false {
+		filepath = "./" + filepath
+	}
 	return filepath
 }
 

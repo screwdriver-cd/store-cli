@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 
@@ -55,9 +56,9 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	var path string
 	switch storeType {
 	case "cache":
-		// default is relative path
-		if strings.HasPrefix(key, "./") == true {
-				key = strings.TrimLeft(key, "./")
+		// if path is relative, get abs path
+		if strings.HasPrefix(key, "/") == false {
+				key, _ = filepath.Abs(key)
 		}
 
 		key = strings.TrimRight(key, "/")
@@ -162,7 +163,7 @@ func main() {
 			Name:  "get",
 			Usage: "Get a new item from the store",
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) != 1 {
+				if len(c.Args()) > 1 {
 					return cli.ShowAppHelp(c)
 				}
 				scope := c.String("scope")
