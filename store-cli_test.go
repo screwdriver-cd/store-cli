@@ -1,7 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"net/url"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -17,6 +20,8 @@ func TestMakeURL(t *testing.T) {
 	os.Setenv("SD_BUILD_ID", "10038")
 	os.Setenv("SD_EVENT_ID", "499")
 	os.Setenv("SD_PIPELINE_ID", "100")
+	abspath, _ := filepath.Abs("./")
+	abspath = url.QueryEscape(abspath)
 
 	// Success test cases
 	testCases := []struct {
@@ -25,14 +30,16 @@ func TestMakeURL(t *testing.T) {
 		key       string
 		expected  string
 	}{
-		{"cache", "events", "cache-1", "http://store.screwdriver.cd/v1/caches/events/499/cache-1"},
-		{"cache", "events", "!-_.*'()&@:,.$=+?; space", "http://store.screwdriver.cd/v1/caches/events/499/%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space"},
-		{"cache", "pipelines", "cache-1", "http://store.screwdriver.cd/v1/caches/pipelines/100/cache-1"},
-		{"artifacts", "events", "artifact-1", "http://store.screwdriver.cd/v1/builds/10038-ARTIFACTS/artifact-1"},
-		{"artifacts", "builds", "test", "http://store.screwdriver.cd/v1/builds/10038-ARTIFACTS/test"},
-		{"logs", "builds", "testlog", "http://store.screwdriver.cd/v1/builds/10038-testlog"},
-		{"logs", "builds", "step-bookend", "http://store.screwdriver.cd/v1/builds/10038-step-bookend"},
-		{"logs", "pipelines", "test-2", "http://store.screwdriver.cd/v1/builds/10038-test-2"},
+		{"cache", "event", "/mycache", "http://store.screwdriver.cd/v1/caches/events/499/%2Fmycache"},
+		{"cache", "event", "mycache", fmt.Sprintf("%s%s%s", "http://store.screwdriver.cd/v1/caches/events/499/", abspath, "%2Fmycache")},
+		{"cache", "event", "./mycache", fmt.Sprintf("%s%s%s", "http://store.screwdriver.cd/v1/caches/events/499/", abspath, "%2Fmycache")},
+		{"cache", "event", "/tmp/mycache/1/2/3/4/", "http://store.screwdriver.cd/v1/caches/events/499/%2Ftmp%2Fmycache%2F1%2F2%2F3%2F4"},
+		{"cache", "event", "/!-_.*'()&@:,.$=+?; space", "http://store.screwdriver.cd/v1/caches/events/499/%2F%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space"},
+		{"artifact", "event", "artifact-1", "http://store.screwdriver.cd/v1/builds/10038-ARTIFACTS/artifact-1"},
+		{"artifact", "build", "test", "http://store.screwdriver.cd/v1/builds/10038-ARTIFACTS/test"},
+		{"log", "build", "testlog", "http://store.screwdriver.cd/v1/builds/10038-testlog"},
+		{"log", "build", "step-bookend", "http://store.screwdriver.cd/v1/builds/10038-step-bookend"},
+		{"log", "pipeline", "test-2", "http://store.screwdriver.cd/v1/builds/10038-test-2"},
 	}
 
 	for _, tc := range testCases {

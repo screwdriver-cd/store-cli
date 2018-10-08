@@ -293,7 +293,10 @@ func TestDownload(t *testing.T) {
 
 func TestDownloadZip(t *testing.T) {
 	token := "faketoken"
-	testfilepath := "../data/test1.zip"
+	abspath, _ := filepath.Abs("./")
+	testfilepath := abspath + "/../data/test.zip"
+	testfilepath = url.QueryEscape(testfilepath)
+
 	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfilepath)
 	downloader := &sdStore{
 		token,
@@ -313,7 +316,7 @@ func TestDownloadZip(t *testing.T) {
 	_, _ = downloader.Download(u, true)
 
 	want, _ := ioutil.ReadFile("../data/emitterdata")
-	got, _ := ioutil.ReadFile("/tmp/test/emitterdata")
+	got, _ := ioutil.ReadFile(abspath + "/../data/tmp/test/emitterdata")
 
 	err := os.RemoveAll("/tmp/test")
 
@@ -355,7 +358,7 @@ func TestDownloadRetry(t *testing.T) {
 
 func TestDownloadWriteBack(t *testing.T) {
 	token := "faketoken"
-	testfilepath := "test-data/node_modules/schema/file"
+	testfilepath := "/tmp/test-data/node_modules/schema/file"
 	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfilepath)
 	downloader := &sdStore{
 		token,
@@ -380,7 +383,7 @@ func TestDownloadWriteBack(t *testing.T) {
 		t.Errorf("Response is %s, want %s", string(res), want)
 	}
 
-	filecontent, err := ioutil.ReadFile("./" + testfilepath)
+	filecontent, err := ioutil.ReadFile(testfilepath)
 	if err != nil {
 		t.Errorf("File content is not written")
 	}
@@ -396,8 +399,9 @@ func TestDownloadWriteBack(t *testing.T) {
 
 func TestDownloadWriteBackSpecialFile(t *testing.T) {
 	token := "faketoken"
-	testfolder := "./test-data/node_modules/schema/"
-	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/test-data/node_modules/schema/%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space")
+	testfolder := "/tmp/test-data/node_modules/schema/"
+	testfilename := "!-_.*'()&@:,.$= ?; space"
+	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfolder + "%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space")
 	downloader := &sdStore{
 		token,
 		&http.Client{Timeout: 10 * time.Second},
@@ -421,7 +425,7 @@ func TestDownloadWriteBackSpecialFile(t *testing.T) {
 		t.Errorf("Response is %s, want %s", string(res), want)
 	}
 
-	fileInfo, err := os.Stat(testfolder + "!-_.*'()&@:,.$= ?; space")
+	fileInfo, err := os.Stat(testfolder + testfilename)
 	filecontent, err := ioutil.ReadFile(testfolder + fileInfo.Name())
 	if err != nil {
 		t.Errorf("File content is not written")
