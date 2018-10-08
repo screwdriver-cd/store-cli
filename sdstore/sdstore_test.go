@@ -358,7 +358,7 @@ func TestDownloadRetry(t *testing.T) {
 
 func TestDownloadWriteBack(t *testing.T) {
 	token := "faketoken"
-	testfilepath := "test-data/node_modules/schema/file"
+	testfilepath := "/tmp/test-data/node_modules/schema/file"
 	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfilepath)
 	downloader := &sdStore{
 		token,
@@ -383,7 +383,7 @@ func TestDownloadWriteBack(t *testing.T) {
 		t.Errorf("Response is %s, want %s", string(res), want)
 	}
 
-	filecontent, err := ioutil.ReadFile("./" + testfilepath)
+	filecontent, err := ioutil.ReadFile(testfilepath)
 	if err != nil {
 		t.Errorf("File content is not written")
 	}
