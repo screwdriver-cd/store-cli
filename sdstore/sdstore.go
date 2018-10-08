@@ -208,7 +208,11 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 		dir, _ = filepath.Split(filePath)
 		err := os.MkdirAll(dir, 0777)
 
-		file, err = os.Create(filePath + ".zip")
+		if toExtract == true {
+			filePath += ".zip"
+		}
+
+		file, err = os.Create(filePath)
 		if err != nil {
 			return nil, err
 		}
@@ -246,12 +250,11 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 		}
 
 		if toExtract {
-			zipfile := filePath + ".zip"
-			_, err = Unzip(zipfile, dir)
+			_, err = Unzip(filePath, dir)
 			if err != nil {
 				log.Printf("Could not unzip file %s: %s", filePath, err)
 			} else {
-				os.Remove(zipfile)
+				os.Remove(filePath)
 			}
 		}
 	}
