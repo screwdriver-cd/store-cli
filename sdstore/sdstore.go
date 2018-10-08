@@ -66,8 +66,6 @@ func getFilePath(u *url.URL) string {
 	filepath = strings.TrimRight(filepath, "/")
 	// decode
 	filepath, _ = url.QueryUnescape(filepath)
-	// add current directory
-	filepath = "./" + filepath
 
 	return filepath
 }
@@ -253,10 +251,16 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 	filePath := getFilePath(url)
 	var file *os.File
 	var err error
+	var dir string
 
 	if filePath != "" {
-		dir, _ := filepath.Split(filePath)
+		dir, _ = filepath.Split(filePath)
 		err := os.MkdirAll(dir, 0777)
+
+		if toExtract == true {
+			filePath += ".zip"
+		}
+
 		file, err = os.Create(filePath)
 		if err != nil {
 			return nil, err
@@ -295,11 +299,11 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 		}
 
 		if toExtract {
-			_, err = Unzip(filePath, "/")
+			_, err = Unzip(filePath, dir)
 			if err != nil {
 				log.Printf("Could not unzip file %s: %s", filePath, err)
 			} else {
-				os.RemoveAll(filePath)
+				os.Remove(filePath)
 			}
 		}
 	}
