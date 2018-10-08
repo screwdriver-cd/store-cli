@@ -408,8 +408,9 @@ func TestDownloadWriteBack(t *testing.T) {
 
 func TestDownloadWriteBackSpecialFile(t *testing.T) {
 	token := "faketoken"
-	testfolder := "./test-data/node_modules/schema/"
-	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/test-data/node_modules/schema/%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space")
+	testfolder := "/tmp/test-data/node_modules/schema/"
+	testfilename := "!-_.*'()&@:,.$= ?; space"
+	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfolder + "%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space")
 	downloader := &sdStore{
 		token,
 		&http.Client{Timeout: 10 * time.Second},
@@ -433,7 +434,7 @@ func TestDownloadWriteBackSpecialFile(t *testing.T) {
 		t.Errorf("Response is %s, want %s", string(res), want)
 	}
 
-	fileInfo, err := os.Stat(testfolder + "!-_.*'()&@:,.$= ?; space")
+	fileInfo, err := os.Stat(testfolder + testfilename)
 	filecontent, err := ioutil.ReadFile(testfolder + fileInfo.Name())
 	if err != nil {
 		t.Errorf("File content is not written")
