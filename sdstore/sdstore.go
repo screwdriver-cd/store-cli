@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -110,11 +111,33 @@ func (s *sdStore) Download(url *url.URL, toExtract bool) ([]byte, error) {
 	return nil, fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
 }
 
-func GenerateMd5Json(path string) (string, error) {
+func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, error) {
 	m, err := MD5All(path)
 	if err != nil {
 		return "", err
 	}
+
+	_, err = s.Download(url, false)
+	if err == nil {
+		var currentMd5Path string
+		currentMd5Path = fmt.Sprintf("%s_md5.json", path)
+		md5File, err := ioutil.ReadFile(currentMd5Path)
+		if err != nil {
+			return "", err
+		}
+
+		currentMd5 := make(map[string]string)
+		err = json.Unmarshal(md5File, &currentMd5)
+		os.RemoveAll(currentMd5Path)
+		if err != nil {
+			return "", err
+		}
+
+		if reflect.DeepEqual(currentMd5, m) {
+			return "", fmt.Errorf("Contents unchanged, aborting upload")
+		}
+	}
+
 	jsonString, err := json.Marshal(m)
 
 	if err != nil {
@@ -123,7 +146,6 @@ func GenerateMd5Json(path string) (string, error) {
 
 	var md5Path string
 	md5Path = fmt.Sprintf("%s_md5.json", filepath.Base(path))
-
 	jsonFile, err := os.Create(md5Path)
 
 	if err != nil {
@@ -149,13 +171,14 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			var fileName string
 			fileName = filepath.Base(filePath)
 
-			md5Json, err := GenerateMd5Json(filePath)
+			encodedURL, _ := url.Parse(fmt.Sprintf("%s%s", u.String(), "_md5.json"))
+			md5Json, err := s.GenerateAndCheckMd5Json(encodedURL, filePath)
 			if err != nil {
 				log.Printf("(Try %d of %d) error received from generating md5: %v", i+1, maxRetries, err)
 				continue
 			}
 
-			err = s.putFile(u, "application/json", md5Json)
+			err = s.putFile(encodedURL, "application/json", md5Json)
 			if err != nil {
 				log.Printf("(Try %d of %d) error received from uploading md5 json: %v", i+1, maxRetries, err)
 				continue
@@ -174,14 +197,15 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 				continue
 			}
 
-      absPath, _ := filepath.Abs(filePath)
+			absPath, _ := filepath.Abs(filePath)
 			err = archiver.Zip.Make(zipPath, []string{absPath})
 			if err != nil {
 				log.Printf("(Try %d of %d) Unable to zip file: %v", i+1, maxRetries, err)
 				continue
 			}
 
-			err = s.putFile(u, "application/zip", zipPath)
+			encodedURL, _ = url.Parse(fmt.Sprintf("%s%s", u.String(), ".zip"))
+			err = s.putFile(encodedURL, "application/zip", zipPath)
 			errRemove := os.Remove(zipPath)
 
 			if err != nil {
