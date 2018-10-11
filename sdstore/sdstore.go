@@ -112,33 +112,33 @@ func (s *sdStore) Download(url *url.URL, toExtract bool) ([]byte, error) {
 }
 
 func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, error) {
-	m, err := MD5All(path)
+	newMd5, err := MD5All(path)
 	if err != nil {
 		return "", err
 	}
 
 	_, err = s.Download(url, false)
 	if err == nil {
-		var currentMd5Path string
-		currentMd5Path = fmt.Sprintf("%s_md5.json", path)
-		md5File, err := ioutil.ReadFile(currentMd5Path)
+		var oldMd5FilePath string
+		oldMd5FilePath = fmt.Sprintf("%s_md5.json", path)
+		oldMd5File, err := ioutil.ReadFile(oldMd5FilePath)
 		if err != nil {
 			return "", err
 		}
 
-		currentMd5 := make(map[string]string)
-		err = json.Unmarshal(md5File, &currentMd5)
-		os.RemoveAll(currentMd5Path)
+		oldMd5 := make(map[string]string)
+		err = json.Unmarshal(oldMd5File, &oldMd5)
+		os.RemoveAll(oldMd5FilePath)
 		if err != nil {
 			return "", err
 		}
 
-		if reflect.DeepEqual(currentMd5, m) {
-			return "", fmt.Errorf("Contents unchanged, aborting upload")
+		if reflect.DeepEqual(oldMd5, newMd5) {
+			return "", fmt.Errorf("Contents unchanged")
 		}
 	}
 
-	jsonString, err := json.Marshal(m)
+	jsonString, err := json.Marshal(newMd5)
 
 	if err != nil {
 		return "", err
@@ -170,9 +170,14 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 		if toCompress {
 			var fileName string
 			fileName = filepath.Base(filePath)
-
 			encodedURL, _ := url.Parse(fmt.Sprintf("%s%s", u.String(), "_md5.json"))
 			md5Json, err := s.GenerateAndCheckMd5Json(encodedURL, filePath)
+
+			if err != nil && err.Error() == "Contents unchanged" {
+				log.Printf("No change, aborting upload")
+				return nil
+			}
+
 			if err != nil {
 				log.Printf("(Try %d of %d) error received from generating md5: %v", i+1, maxRetries, err)
 				continue

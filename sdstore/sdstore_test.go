@@ -39,8 +39,11 @@ func makeFakeHTTPClient(t *testing.T, code int, body string, v func(r *http.Requ
 
 		w.WriteHeader(code)
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.String() == "http://fakestore.com/builds/../data/emitterdata_md5.json" {
-			w.Write([]byte("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\"}"))
+
+		if r.URL.String() == "http://fakestore.com/v1/caches/events/123/../data/emitterdata_md5.json" {
+			w.Write([]byte("{\"../data/emitterdata\":\"73a256001a246e77fd1941ca007b50r2\"}"))
+		} else if r.URL.String() == "http://fakestore.com/v1/caches/events/123/../data/emitterdata2_md5.json" {
+			w.Write([]byte("{\"../data/emitterdata2\":\"b567651333fff804168aabac8284d708\"}"))
 		} else {
 			w.Write([]byte("test-content"))
 		}
@@ -83,6 +86,14 @@ func makeFakeZipHTTPClient(t *testing.T, code int, body string, v func(r *http.R
 
 func testFile() *os.File {
 	f, err := os.Open("../data/emitterdata")
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func testFile2() *os.File {
+	f, err := os.Open("../data/emitterdata2")
 	if err != nil {
 		panic(err)
 	}
@@ -142,14 +153,19 @@ func TestUpload(t *testing.T) {
 	}
 }
 
-func TestUploadZip(t *testing.T) {
+func TestUploadZipWithChange(t *testing.T) {
 	token := "faketoken"
-	u, _ := url.Parse("http://fakestore.com/builds/../data/emitterdata")
+	file := "../data/emitterdata"
+	zipfile := file + ".zip"
+	u, _ := url.Parse("http://fakestore.com/v1/caches/events/123/" + file)
 	uploader := &sdStore{
 		token,
 		&http.Client{Timeout: 10 * time.Second},
 	}
 	called := 0
+	getMd5 := false
+	putZip := false
+	putMd5 := false
 
 	want := bytes.NewBuffer(nil)
 	f := testFile()
@@ -166,13 +182,16 @@ func TestUploadZip(t *testing.T) {
 
 		content, _ := ioutil.ReadAll(got)
 
-		if r.Method == "PUT" && contentType == "application/zip" {
-			err := ioutil.WriteFile("../data/emitterdata.zip", content, 0644)
+		if r.Method == "GET" {
+			getMd5 = true
+		} else if r.Method == "PUT" && contentType == "application/zip" {
+			putZip = true
+			err := ioutil.WriteFile(zipfile, content, 0644)
 			if err != nil {
 				panic(err)
 			}
 
-			files, err := Unzip("../data/emitterdata.zip", "../data/test")
+			files, err := Unzip(zipfile, "../data/test")
 
 			var filecontent []byte
 			if len(files) == 1 {
@@ -193,7 +212,7 @@ func TestUploadZip(t *testing.T) {
 				t.Errorf("Wrong Content-Length sent to uploader. Got %d, want %d", r.ContentLength, fsize)
 			}
 
-			err = os.Remove("../data/emitterdata.zip")
+			err = os.Remove(zipfile)
 			if err != nil {
 				panic(err)
 			}
@@ -203,8 +222,9 @@ func TestUploadZip(t *testing.T) {
 				panic(err)
 			}
 		} else if r.Method == "PUT" && contentType == "application/json" {
+			putMd5 = true
 			md5Json, _ := ioutil.ReadFile("emitterdata_md5.json")
-			wantmd5 := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\"}")
+			wantmd5 := fmt.Sprintf("{\"" + file + "\":\"62a256001a246e77fd1941ca007b50e1\"}")
 
 			if string(md5Json) != wantmd5 {
 				t.Errorf("Expected content of md5 json to be %s, got %s", md5Json, wantmd5)
@@ -213,10 +233,60 @@ func TestUploadZip(t *testing.T) {
 			t.Errorf("Wrong content type, expected one of application/zip or application/json")
 		}
 	})
+
+
 	uploader.client = http
 	uploader.Upload(u, testFile().Name(), true)
 
-	if called > 2 || called == 0 {
+	if !getMd5 {
+		t.Errorf("Did not get md5 file")
+	}
+
+	if !putZip {
+		t.Errorf("Did not upload zip file")
+	}
+
+	if !putMd5 {
+		t.Errorf("Did not upload md5 file")
+	}
+
+	if called != 3 { 	// 1 GET, 2 PUTs
+		t.Fatalf("The HTTP client was not called as expected")
+	}
+}
+
+func TestUploadZipNoChange(t *testing.T) {
+	token := "faketoken"
+	file := "../data/emitterdata2"
+	u, _ := url.Parse("http://fakestore.com/v1/caches/events/123/" + file)
+	uploader := &sdStore{
+		token,
+		&http.Client{Timeout: 10 * time.Second},
+	}
+	called := 0
+
+	want := bytes.NewBuffer(nil)
+	f := testFile()
+	io.Copy(want, f)
+	f.Close()
+	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
+		contentType := r.Header.Get("Content-Type")
+		called++
+		got := bytes.NewBuffer(nil)
+		io.Copy(got, r.Body)
+		r.Body.Close()
+
+		if r.Method == "PUT" && contentType == "application/zip" {
+			t.Errorf("Should not put zip file")
+		} else if r.Method == "PUT" && contentType == "application/json" {
+			t.Errorf("Should not put Md5 file")
+		}
+	})
+
+	uploader.client = http
+	uploader.Upload(u, testFile2().Name(), true)
+
+	if called != 1 { 	// 1 GET
 		t.Fatalf("The HTTP client was not called as expected")
 	}
 }
@@ -263,8 +333,8 @@ func TestUploadZipRetry(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
 	}
-	if callCount != 6 {
-		t.Errorf("Expected 6 retries, got %d", callCount)
+	if callCount != 42 {
+		t.Errorf("Expected 42 retries, got %d", callCount)
 	}
 }
 
