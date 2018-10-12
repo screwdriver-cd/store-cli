@@ -195,7 +195,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			}
 
 			var zipPath string
-			zipPath, err = filepath.Abs(fmt.Sprintf("%s.zip", fileName))
+			zipPath, err = filepath.Abs(fileName)
 
 			if err != nil {
 				log.Printf("(Try %d of %d) Unable to determine filepath: %v", i+1, maxRetries, err)
@@ -209,7 +209,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 				continue
 			}
 
-			encodedURL, _ = url.Parse(fmt.Sprintf("%s%s", u.String(), ".zip"))
+			encodedURL, _ = url.Parse(u.String())
 			err = s.putFile(encodedURL, "application/zip", zipPath)
 			errRemove := os.Remove(zipPath)
 
