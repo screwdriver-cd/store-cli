@@ -308,8 +308,8 @@ func TestUploadRetry(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
 	}
-	if callCount != 6 {
-		t.Errorf("Expected 6 retries, got %d", callCount)
+	if callCount != 3 {
+		t.Errorf("Expected 3 retries, got %d", callCount)
 	}
 }
 
@@ -332,7 +332,7 @@ func TestUploadZipRetry(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
 	}
-	if callCount != 42 {
+	if callCount != 12 {
 		t.Errorf("Expected 42 retries, got %d", callCount)
 	}
 }
@@ -428,7 +428,7 @@ func TestDownloadRetry(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error from downloader.Download(), got nil")
 	}
-	if callCount != 6 {
+	if callCount != 3 {
 		t.Errorf("Expected 6 retries, got %d", callCount)
 	}
 }
@@ -564,7 +564,7 @@ func TestRemoveRetry(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected error from removeRes.Remove(), got nil")
 	}
-	if callCount != 6 {
+	if callCount != 3 {
 		t.Errorf("Expected 6 retries, got %d", callCount)
 	}
 }

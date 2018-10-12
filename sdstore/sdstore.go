@@ -20,7 +20,7 @@ import (
 
 var retryScaler = 1.0
 
-const maxRetries = 6
+const maxRetries = 3
 
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
