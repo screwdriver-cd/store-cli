@@ -234,7 +234,6 @@ func TestUploadZipWithChange(t *testing.T) {
 		}
 	})
 
-
 	uploader.client = http
 	uploader.Upload(u, testFile().Name(), true)
 
@@ -250,7 +249,7 @@ func TestUploadZipWithChange(t *testing.T) {
 		t.Errorf("Did not upload md5 file")
 	}
 
-	if called != 3 { 	// 1 GET, 2 PUTs
+	if called != 3 { // 1 GET, 2 PUTs
 		t.Fatalf("The HTTP client was not called as expected")
 	}
 }
@@ -286,7 +285,7 @@ func TestUploadZipNoChange(t *testing.T) {
 	uploader.client = http
 	uploader.Upload(u, testFile2().Name(), true)
 
-	if called != 1 { 	// 1 GET
+	if called != 1 { // 1 GET
 		t.Fatalf("The HTTP client was not called as expected")
 	}
 }
@@ -569,20 +568,3 @@ func TestRemoveRetry(t *testing.T) {
 		t.Errorf("Expected 6 retries, got %d", callCount)
 	}
 }
-
-/* func TestGenerateMd5Json(t *testing.T) {
-	md5Json, err := GenerateAndCheckMd5Json("../data/")
-	md5Content, err := ioutil.ReadFile(md5Json)
-
-	if err != nil {
-		panic(err)
-	}
-
-	want := fmt.Sprintf("{\"../data/emitterdata\":\"62a256001a246e77fd1941ca007b50e1\",\"../data/test.zip\":\"052925051a70c359e1985ef4a6e88334\"}")
-
-	os.Remove(md5Json)
-
-	if string(md5Content) != want {
-		t.Errorf("Expected %s, got %s", want, md5Content)
-	}
-} */
