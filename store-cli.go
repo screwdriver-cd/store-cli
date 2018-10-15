@@ -58,7 +58,7 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	case "cache":
 		// if path is relative, get abs path
 		if strings.HasPrefix(key, "/") == false {
-				key, _ = filepath.Abs(key)
+			key, _ = filepath.Abs(key)
 		}
 
 		key = strings.TrimRight(key, "/")
