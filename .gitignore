@@ -35,3 +35,4 @@ _testmain.go
 
 # test files
 sdstore/test-data/*
+data/tmp/

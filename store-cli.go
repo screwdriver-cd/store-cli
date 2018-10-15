@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime/debug"
+	"strings"
 
 	"github.com/screwdriver-cd/store-cli/sdstore"
 	"github.com/urfave/cli"
@@ -43,24 +45,29 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 
 	var scopeEnv string
 	switch scope {
-	case "events":
+	case "event":
 		scopeEnv = os.Getenv("SD_EVENT_ID")
-	case "jobs":
+	case "job":
 		scopeEnv = os.Getenv("SD_JOB_ID")
-	case "pipelines":
+	case "pipeline":
 		scopeEnv = os.Getenv("SD_PIPELINE_ID")
 	}
-
-	encoded := url.QueryEscape(key)
 
 	var path string
 	switch storeType {
 	case "cache":
-		path = "caches/" + scope + "/" + scopeEnv + "/" + encoded
-	case "artifacts":
-		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-ARTIFACTS/" + encoded
-	case "logs":
-		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-" + encoded
+		// if path is relative, get abs path
+		if strings.HasPrefix(key, "/") == false {
+				key, _ = filepath.Abs(key)
+		}
+
+		key = strings.TrimRight(key, "/")
+		encoded := url.QueryEscape(key)
+		path = "caches/" + scope + "s/" + scopeEnv + "/" + encoded
+	case "artifact":
+		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-ARTIFACTS/" + key
+	case "log":
+		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-" + key
 	default:
 		path = ""
 	}
@@ -77,6 +84,7 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 func get(storeType, scope, key string) error {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
+
 	if err != nil {
 		return err
 	}
@@ -95,9 +103,10 @@ func get(storeType, scope, key string) error {
 	return err
 }
 
-func set(storeType, scope, key, filePath string) error {
+func set(storeType, scope, filePath string) error {
 	sdToken := os.Getenv("SD_TOKEN")
-	fullURL, err := makeURL(storeType, scope, key)
+	fullURL, err := makeURL(storeType, scope, filePath)
+
 	if err != nil {
 		return err
 	}
@@ -117,6 +126,7 @@ func set(storeType, scope, key, filePath string) error {
 func remove(storeType, scope, key string) error {
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
+
 	if err != nil {
 		return err
 	}
@@ -152,11 +162,12 @@ func main() {
 			Name:  "get",
 			Usage: "Get a new item from the store",
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) == 0 {
+				if len(c.Args()) != 1 {
 					return cli.ShowAppHelp(c)
 				}
 				scope := c.String("scope")
 				storeType := c.String("type")
+
 				key := c.Args().Get(0)
 				err := get(storeType, scope, key)
 				if err != nil {
@@ -171,14 +182,13 @@ func main() {
 			Name:  "set",
 			Usage: "Put a new item to the store",
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) <= 1 {
+				if len(c.Args()) != 1 {
 					return cli.ShowAppHelp(c)
 				}
 				scope := c.String("scope")
 				storeType := c.String("type")
 				key := c.Args().Get(0)
-				val := c.Args().Get(1)
-				err := set(storeType, scope, key, val)
+				err := set(storeType, scope, key)
 				if err != nil {
 					failureExit(err)
 				}
@@ -191,7 +201,7 @@ func main() {
 			Name:  "remove",
 			Usage: "Remove an existing item from the store",
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) == 0 {
+				if len(c.Args()) != 1 {
 					return cli.ShowAppHelp(c)
 				}
 				scope := c.String("scope")

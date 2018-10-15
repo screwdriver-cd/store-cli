@@ -2,6 +2,7 @@ package sdstore
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"fmt"
 	"github.com/mholt/archiver"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -18,7 +20,7 @@ import (
 
 var retryScaler = 1.0
 
-const maxRetries = 6
+const maxRetries = 3
 
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
@@ -65,8 +67,6 @@ func getFilePath(u *url.URL) string {
 	filepath = strings.TrimRight(filepath, "/")
 	// decode
 	filepath, _ = url.QueryUnescape(filepath)
-	// add current directory
-	filepath = "./" + filepath
 
 	return filepath
 }
@@ -111,30 +111,106 @@ func (s *sdStore) Download(url *url.URL, toExtract bool) ([]byte, error) {
 	return nil, fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
 }
 
+func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, error) {
+	newMd5, err := MD5All(path)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Download(url, false)
+	if err == nil {
+		var oldMd5FilePath string
+		oldMd5FilePath = fmt.Sprintf("%s_md5.json", filepath.Clean(path))
+		oldMd5File, err := ioutil.ReadFile(oldMd5FilePath)
+		if err != nil {
+			return "", err
+		}
+
+		oldMd5 := make(map[string]string)
+		err = json.Unmarshal(oldMd5File, &oldMd5)
+		os.RemoveAll(oldMd5FilePath)
+		if err != nil {
+			return "", err
+		}
+
+		if reflect.DeepEqual(oldMd5, newMd5) {
+			return "", fmt.Errorf("Contents unchanged")
+		}
+	}
+
+	jsonString, err := json.Marshal(newMd5)
+
+	if err != nil {
+		return "", err
+	}
+
+	var md5Path string
+	md5Path = fmt.Sprintf("%s_md5.json", filepath.Base(path))
+	jsonFile, err := os.Create(md5Path)
+
+	if err != nil {
+		return "", err
+	}
+	defer jsonFile.Close()
+
+	jsonFile.Write(jsonString)
+	jsonFile.Close()
+
+	return md5Path, nil
+}
+
 // Uploads sends a file to a path within the SD Store. The path is relative to
 // the build/event path within the SD Store, e.g. http://store.screwdriver.cd/builds/abc/<storePath>
 func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 	var err error
+
 	for i := 0; i < maxRetries; i++ {
 		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
 
 		if toCompress {
-			var fileName, zipPath string
+			var fileName string
 			fileName = filepath.Base(filePath)
-			zipPath, err := filepath.Abs(fmt.Sprintf("%s.zip", fileName))
+			encodedURL, _ := url.Parse(fmt.Sprintf("%s%s", u.String(), "_md5.json"))
+			md5Json, err := s.GenerateAndCheckMd5Json(encodedURL, filePath)
+
+			if err != nil && err.Error() == "Contents unchanged" {
+				log.Printf("No change, aborting upload")
+				return nil
+			}
+
+			if err != nil {
+				log.Printf("(Try %d of %d) error received from generating md5: %v", i+1, maxRetries, err)
+				continue
+			}
+
+			err = s.putFile(encodedURL, "application/json", md5Json)
+			if err != nil {
+				log.Printf("(Try %d of %d) error received from uploading md5 json: %v", i+1, maxRetries, err)
+				continue
+			}
+
+			err = os.Remove(md5Json)
+			if err != nil {
+				log.Printf("Unable to remove md5 file from path: %s, continuing", md5Json)
+			}
+
+			var zipPath string
+			zipPath, err = filepath.Abs(fileName)
 
 			if err != nil {
 				log.Printf("(Try %d of %d) Unable to determine filepath: %v", i+1, maxRetries, err)
 				continue
 			}
 
-			err = archiver.Zip.Make(zipPath, []string{filePath})
+			absPath, _ := filepath.Abs(filePath)
+			err = archiver.Zip.Make(zipPath, []string{absPath})
 			if err != nil {
 				log.Printf("(Try %d of %d) Unable to zip file: %v", i+1, maxRetries, err)
 				continue
 			}
 
-			err = s.putFile(u, "application/zip", zipPath)
+			encodedURL, _ = url.Parse(u.String())
+			err = s.putFile(encodedURL, "application/zip", zipPath)
 			errRemove := os.Remove(zipPath)
 
 			if err != nil {
@@ -204,10 +280,16 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 	filePath := getFilePath(url)
 	var file *os.File
 	var err error
+	var dir string
 
 	if filePath != "" {
-		dir, _ := filepath.Split(filePath)
+		dir, _ = filepath.Split(filePath)
 		err := os.MkdirAll(dir, 0777)
+
+		if toExtract == true {
+			filePath += ".zip"
+		}
+
 		file, err = os.Create(filePath)
 		if err != nil {
 			return nil, err
@@ -246,11 +328,11 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 		}
 
 		if toExtract {
-			_, err = Unzip(filePath, "/")
+			_, err = Unzip(filePath, dir)
 			if err != nil {
 				log.Printf("Could not unzip file %s: %s", filePath, err)
 			} else {
-				os.RemoveAll(filePath)
+				os.Remove(filePath)
 			}
 		}
 	}
