@@ -349,6 +349,10 @@ func TestDownload(t *testing.T) {
 	want := "test-content"
 
 	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
+		if r.URL.Path != u.Path {
+			t.Errorf("Wrong URL path, needs to be a zip file: %s", r.URL.Path)
+		}
+
 		called = true
 
 		if r.Method != "GET" {
@@ -382,6 +386,10 @@ func TestDownloadZip(t *testing.T) {
 	called := false
 
 	http := makeFakeZipHTTPClient(t, 200, "OK", func(r *http.Request) {
+		if r.URL.Path != fmt.Sprintf("%s%s", u.Path, ".zip") {
+			t.Errorf("Wrong URL path, needs to be a zip file: %s", r.URL.Path)
+		}
+
 		called = true
 
 		if r.Method != "GET" {
