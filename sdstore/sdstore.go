@@ -297,7 +297,14 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 		defer file.Close()
 	}
 
-	req, err := http.NewRequest("GET", url.String(), nil)
+	var urlString string
+	if toExtract == true {
+		urlString = fmt.Sprintf("%s%s", url.String(), ".zip")
+	} else {
+		urlString = url.String()
+	}
+
+	req, err := http.NewRequest("GET", urlString, nil)
 	if err != nil {
 		return nil, err
 	}
