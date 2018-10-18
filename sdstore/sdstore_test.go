@@ -350,7 +350,7 @@ func TestDownload(t *testing.T) {
 
 	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
 		if r.URL.Path != u.Path {
-			t.Errorf("Wrong URL path, needs to be a zip file: %s", r.URL.Path)
+			t.Errorf("Wrong URL path: %s", r.URL.Path)
 		}
 
 		called = true
