@@ -89,7 +89,7 @@ func (s *sdStore) Remove(u *url.URL) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("getting from %s after %d retries: %v", u, maxRetries, err)
+	return fmt.Errorf("removing from %s after %d retries: %v", u, maxRetries, err)
 }
 
 // Download a file from a path within the SD Store
