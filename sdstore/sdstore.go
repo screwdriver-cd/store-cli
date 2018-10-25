@@ -210,7 +210,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			}
 
 			encodedURL, _ = url.Parse(fmt.Sprintf("%s%s", u.String(), ".zip"))
-			err = s.putFile(encodedURL, "application/zip", zipPath)
+			err = s.putFile(encodedURL, "text/plain", zipPath)
 			errRemove := os.Remove(zipPath)
 
 			if err != nil {

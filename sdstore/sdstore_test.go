@@ -69,7 +69,7 @@ func makeFakeZipHTTPClient(t *testing.T, code int, body string, v func(r *http.R
 		}
 
 		w.WriteHeader(code)
-		w.Header().Set("Content-Type", "application/zip")
+		w.Header().Set("Content-Type", "text/plain")
 		filePath, _ := filepath.Abs("../data/test.zip")
 		fileContent, _ := ioutil.ReadFile(filePath)
 		w.Write(fileContent)
@@ -184,7 +184,7 @@ func TestUploadZipWithChange(t *testing.T) {
 
 		if r.Method == "GET" {
 			getMd5 = true
-		} else if r.Method == "PUT" && contentType == "application/zip" {
+		} else if r.Method == "PUT" && contentType == "text/plain" {
 			putZip = true
 			err := ioutil.WriteFile(zipfile, content, 0644)
 			if err != nil {
@@ -230,7 +230,7 @@ func TestUploadZipWithChange(t *testing.T) {
 				t.Errorf("Expected content of md5 json to be %s, got %s", md5Json, wantmd5)
 			}
 		} else if r.Method == "PUT" {
-			t.Errorf("Wrong content type, expected one of application/zip or application/json")
+			t.Errorf("Wrong content type, expected one of text/plain or application/json")
 		}
 	})
 
@@ -275,7 +275,7 @@ func TestUploadZipNoChange(t *testing.T) {
 		io.Copy(got, r.Body)
 		r.Body.Close()
 
-		if r.Method == "PUT" && contentType == "application/zip" {
+		if r.Method == "PUT" && contentType == "text/plain" {
 			t.Errorf("Should not put zip file")
 		} else if r.Method == "PUT" && contentType == "application/json" {
 			t.Errorf("Should not put Md5 file")
