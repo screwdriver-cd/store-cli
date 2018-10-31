@@ -174,7 +174,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			md5Json, err := s.GenerateAndCheckMd5Json(encodedURL, filePath)
 
 			if err != nil && err.Error() == "Contents unchanged" {
-				log.Printf("No change, aborting upload")
+				log.Printf("No change to %d, aborting upload", filePath)
 				return nil
 			}
 
