@@ -38,7 +38,7 @@ type sdStore struct {
 func NewStore(token string) SDStore {
 	return &sdStore{
 		token,
-		&http.Client{Timeout: 120 * time.Second},
+		&http.Client{Timeout: 300 * time.Second},
 	}
 }
 
