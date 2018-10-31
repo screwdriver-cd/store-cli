@@ -281,23 +281,8 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 	var file *os.File
 	var err error
 	var dir string
-
-	if filePath != "" {
-		dir, _ = filepath.Split(filePath)
-		err := os.MkdirAll(dir, 0777)
-
-		if toExtract == true {
-			filePath += ".zip"
-		}
-
-		file, err = os.Create(filePath)
-		if err != nil {
-			return nil, err
-		}
-		defer file.Close()
-	}
-
 	var urlString string
+
 	if toExtract == true {
 		urlString = fmt.Sprintf("%s%s", url.String(), ".zip")
 	} else {
@@ -329,7 +314,20 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 
 	// Write to file
 	if filePath != "" {
-		_, err := file.Write(body)
+		dir, _ = filepath.Split(filePath)
+		err := os.MkdirAll(dir, 0777)
+
+		if toExtract == true {
+			filePath += ".zip"
+		}
+
+		file, err = os.Create(filePath)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+
+		_, err = file.Write(body)
 		if err != nil {
 			return nil, err
 		}
