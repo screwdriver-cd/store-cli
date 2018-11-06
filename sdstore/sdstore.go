@@ -103,6 +103,8 @@ func (s *sdStore) Download(url *url.URL, toExtract bool) ([]byte, error) {
 			continue
 		}
 
+		log.Printf("Download from %s successful.", url.String())
+
 		return res, nil
 	}
 
@@ -172,7 +174,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			md5Json, err := s.GenerateAndCheckMd5Json(encodedURL, filePath)
 
 			if err != nil && err.Error() == "Contents unchanged" {
-				log.Printf("No change, aborting upload")
+				log.Printf("No change to %s, aborting upload", filePath)
 				return nil
 			}
 
@@ -220,6 +222,8 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 				log.Printf("Unable to remove zip file: %v", err)
 			}
 
+			log.Printf("Upload to %s successful.", u.String())
+
 			return nil
 		} else {
 			err := s.putFile(u, "text/plain", filePath)
@@ -227,6 +231,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
 				continue
 			}
+			log.Printf("Upload to %s successful.", u.String())
 			return nil
 		}
 	}
@@ -279,23 +284,8 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 	var file *os.File
 	var err error
 	var dir string
-
-	if filePath != "" {
-		dir, _ = filepath.Split(filePath)
-		err := os.MkdirAll(dir, 0777)
-
-		if toExtract == true {
-			filePath += ".zip"
-		}
-
-		file, err = os.Create(filePath)
-		if err != nil {
-			return nil, err
-		}
-		defer file.Close()
-	}
-
 	var urlString string
+
 	if toExtract == true {
 		urlString = fmt.Sprintf("%s%s", url.String(), ".zip")
 	} else {
@@ -327,7 +317,20 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 
 	// Write to file
 	if filePath != "" {
-		_, err := file.Write(body)
+		dir, _ = filepath.Split(filePath)
+		err := os.MkdirAll(dir, 0777)
+
+		if toExtract == true {
+			filePath += ".zip"
+		}
+
+		file, err = os.Create(filePath)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+
+		_, err = file.Write(body)
 		if err != nil {
 			return nil, err
 		}
