@@ -103,6 +103,8 @@ func (s *sdStore) Download(url *url.URL, toExtract bool) ([]byte, error) {
 			continue
 		}
 
+		log.Printf("Download from %s successful.", url.String())
+
 		return res, nil
 	}
 
@@ -220,6 +222,8 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 				log.Printf("Unable to remove zip file: %v", err)
 			}
 
+			log.Printf("Upload to %s successful.", u.String())
+
 			return nil
 		} else {
 			err := s.putFile(u, "text/plain", filePath)
@@ -227,6 +231,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
 				continue
 			}
+			log.Printf("Upload to %s successful.", u.String())
 			return nil
 		}
 	}
