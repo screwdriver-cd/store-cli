@@ -576,3 +576,29 @@ func TestRemoveRetry(t *testing.T) {
 		t.Errorf("Expected 6 retries, got %d", callCount)
 	}
 }
+
+func TestZipAndUnzipWithSymlink(t *testing.T) {
+	err := Zip("../data/testsymlink", "../data/testsymlink.zip")
+
+	if err != nil {
+		t.Errorf("Unable to zip file")
+	}
+
+	_, err = Unzip("../data/testsymlink.zip", "../data/test")
+
+	if err != nil {
+		t.Errorf("Unable to unzip file %v", err)
+	}
+
+	fi, err := os.Readlink("../data/test/testsymlink/symlink")
+	if err != nil {
+		t.Errorf("Could not read symbolic link: %v", err)
+	}
+
+	if fi != "bar/test" {
+		t.Errorf("Expected symlink to point to bar/test, got %s", fi)
+	}
+
+	os.RemoveAll("../data/test")
+	os.RemoveAll("../data/testsymlink.zip")
+}
