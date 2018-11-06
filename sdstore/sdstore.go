@@ -1,10 +1,8 @@
 package sdstore
 
 import (
-	"archive/zip"
 	"encoding/json"
 	"fmt"
-	"github.com/mholt/archiver"
 	"io"
 	"io/ioutil"
 	"log"
@@ -38,7 +36,7 @@ type sdStore struct {
 func NewStore(token string) SDStore {
 	return &sdStore{
 		token,
-		&http.Client{Timeout: 30 * time.Second},
+		&http.Client{Timeout: 300 * time.Second},
 	}
 }
 
@@ -203,7 +201,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			}
 
 			absPath, _ := filepath.Abs(filePath)
-			err = archiver.Zip.Make(zipPath, []string{absPath})
+			err = Zip(absPath, zipPath)
 			if err != nil {
 				log.Printf("(Try %d of %d) Unable to zip file: %v", i+1, maxRetries, err)
 				continue
@@ -402,63 +400,4 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 	}
 
 	return handleResponse(res)
-}
-
-// Taken from https://golangcode.com/unzip-files-in-go/
-func Unzip(src string, dest string) ([]string, error) {
-	var filenames []string
-
-	r, err := zip.OpenReader(src)
-	if err != nil {
-		return filenames, err
-	}
-	defer r.Close()
-
-	for _, f := range r.File {
-
-		rc, err := f.Open()
-		if err != nil {
-			return filenames, err
-		}
-		defer rc.Close()
-
-		// Store filename/path for returning and using later on
-		fpath := filepath.Join(dest, f.Name)
-
-		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
-		if dest != "/" && !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return filenames, fmt.Errorf("%s: illegal file path", fpath)
-		}
-
-		filenames = append(filenames, fpath)
-
-		if f.FileInfo().IsDir() {
-
-			// Make Folder
-			os.MkdirAll(fpath, os.ModePerm)
-
-		} else {
-
-			// Make File
-			if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-				return filenames, err
-			}
-
-			outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-			if err != nil {
-				return filenames, err
-			}
-
-			_, err = io.Copy(outFile, rc)
-
-			// Close the file without defer to close before next iteration of loop
-			outFile.Close()
-
-			if err != nil {
-				return filenames, err
-			}
-
-		}
-	}
-	return filenames, nil
 }
