@@ -85,6 +85,9 @@ func (s *sdStore) Remove(u *url.URL) error {
 			log.Printf("(Try %d of %d) error received from file removal: %v", i+1, maxRetries, err)
 			continue
 		}
+
+		log.Printf("Deletion from %s successful.", u.String())
+
 		return nil
 	}
 	return fmt.Errorf("removing from %s after %d retries: %v", u, maxRetries, err)
