@@ -125,12 +125,37 @@ func set(storeType, scope, filePath string) error {
 
 func remove(storeType, scope, key string) error {
 	sdToken := os.Getenv("SD_TOKEN")
+	store := sdstore.NewStore(sdToken)
+
+	if storeType == "cache" {
+		md5URL, err := makeURL(storeType, scope, fmt.Sprintf("%s%s", filepath.Clean(key), "_md5.json"))
+		if err != nil {
+			return err
+		}
+
+		err = store.Remove(md5URL)
+		if err != nil {
+			return fmt.Errorf("Failed to remove file from %s: %s", md5URL.String(), err)
+		}
+
+		zipURL, err := makeURL(storeType, scope, fmt.Sprintf("%s%s", filepath.Clean(key), ".zip"))
+		if err != nil {
+			return err
+		}
+
+		err = store.Remove(zipURL)
+		if err != nil {
+			return fmt.Errorf("Failed to remove file from %s: %s", zipURL.String(), err)
+		}
+
+		return nil
+	}
+
 	fullURL, err := makeURL(storeType, scope, key)
 
 	if err != nil {
 		return err
 	}
-	store := sdstore.NewStore(sdToken)
 	return store.Remove(fullURL)
 }
 
