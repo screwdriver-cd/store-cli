@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"log"
 
 	"github.com/screwdriver-cd/store-cli/sdstore"
 	"github.com/urfave/cli"
@@ -39,10 +40,27 @@ func finalRecover() {
 	successExit()
 }
 
+// Skip cache action for PR jobs (event, pipeline scope)
+func skipCache(storeType, scope, action string) bool {
+	// if is not cache, or if job is not PR
+	if (storeType != "cache" || os.Getenv("SD_PULL_REQUEST") == "") {
+		return false
+	}
+
+	// For PR jobs,
+	// skip PR event cache to save time, since PR event only consists of 1 job
+	// skip pipeline scoped unless it's trying to get
+	if (scope == "event" || (scope == "pipeline" && action != "get")) {
+		log.Printf("Skipping %s %s-scoped cache for Pull Request", action, scope)
+		return true
+	}
+
+	return false
+}
+
 // makeURL creates the fully-qualified url for a given Store path
 func makeURL(storeType, scope, key string) (*url.URL, error) {
 	storeURL := os.Getenv("SD_STORE_URL")
-
 	var scopeEnv string
 	switch scope {
 	case "event":
@@ -82,6 +100,10 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 }
 
 func get(storeType, scope, key string) error {
+	if skipCache(storeType, scope, "get") {
+		return nil
+	}
+
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, key)
 
@@ -104,6 +126,9 @@ func get(storeType, scope, key string) error {
 }
 
 func set(storeType, scope, filePath string) error {
+	if skipCache(storeType, scope, "set") {
+		return nil
+	}
 	sdToken := os.Getenv("SD_TOKEN")
 	fullURL, err := makeURL(storeType, scope, filePath)
 
@@ -124,6 +149,10 @@ func set(storeType, scope, filePath string) error {
 }
 
 func remove(storeType, scope, key string) error {
+	if skipCache(storeType, scope, "remove") {
+		return nil
+	}
+
 	sdToken := os.Getenv("SD_TOKEN")
 	store := sdstore.NewStore(sdToken)
 

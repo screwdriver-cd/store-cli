@@ -15,6 +15,37 @@ func TestMain(m *testing.M) {
 	os.Exit(retCode)
 }
 
+func TestSkipCache(t *testing.T) {
+	// Success test cases
+	testCases := []struct {
+		storeType string
+		scope     string
+		action		string
+		prNum			string
+		expected	bool
+	}{
+		{"cache", "pipeline", "get", "", false},
+		{"cache", "pipeline", "get", "123", false},
+		{"cache", "pipeline", "set", "123", true},
+		{"cache", "pipeline", "remove", "123", true},
+		{"cache", "event", "get", "", false},
+		{"cache", "event", "get", "123", true},
+		{"cache", "event", "set", "123", true},
+		{"cache", "job", "get", "", false},
+		{"cache", "job", "set", "123", false},
+		{"artifact", "event", "get", "", false},
+		{"log", "build", "set", "123", false},
+	}
+
+	for _, tc := range testCases {
+		os.Setenv("SD_PULL_REQUEST", tc.prNum)
+		skip := skipCache(tc.storeType, tc.scope, tc.action)
+		if skip != tc.expected {
+			t.Fatalf("%s %s for scope %s, expected '%t' got '%t'", tc.action, tc.storeType, tc.scope, tc.expected, skip)
+		}
+	}
+}
+
 func TestMakeURL(t *testing.T) {
 	os.Setenv("SD_STORE_URL", "http://store.screwdriver.cd/v1/")
 	os.Setenv("SD_BUILD_ID", "10038")
