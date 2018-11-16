@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
-	"log"
 
 	"github.com/screwdriver-cd/store-cli/sdstore"
 	"github.com/urfave/cli"
@@ -43,14 +43,14 @@ func finalRecover() {
 // Skip cache action for PR jobs (event, pipeline scope)
 func skipCache(storeType, scope, action string) bool {
 	// if is not cache, or if job is not PR
-	if (storeType != "cache" || os.Getenv("SD_PULL_REQUEST") == "") {
+	if storeType != "cache" || os.Getenv("SD_PULL_REQUEST") == "" {
 		return false
 	}
 
 	// For PR jobs,
 	// skip PR event cache to save time, since PR event only consists of 1 job
 	// skip pipeline scoped unless it's trying to get
-	if (scope == "event" || (scope == "pipeline" && action != "get")) {
+	if scope == "event" || (scope == "pipeline" && action != "get") {
 		log.Printf("Skipping %s %s-scoped cache for Pull Request", action, scope)
 		return true
 	}

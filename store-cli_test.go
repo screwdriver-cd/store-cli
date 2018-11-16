@@ -20,9 +20,9 @@ func TestSkipCache(t *testing.T) {
 	testCases := []struct {
 		storeType string
 		scope     string
-		action		string
-		prNum			string
-		expected	bool
+		action    string
+		prNum     string
+		expected  bool
 	}{
 		{"cache", "pipeline", "get", "", false},
 		{"cache", "pipeline", "get", "123", false},
