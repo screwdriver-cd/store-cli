@@ -66,7 +66,12 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	case "event":
 		scopeEnv = os.Getenv("SD_EVENT_ID")
 	case "job":
-		scopeEnv = os.Getenv("SD_JOB_ID")
+		// use real job id if current job is a PR
+		if os.Getenv("SD_PULL_REQUEST") != "" && os.Getenv("SD_PR_PARENT_JOB_ID") != "" {
+			scopeEnv = os.Getenv("SD_PR_PARENT_JOB_ID")
+		} else {
+			scopeEnv = os.Getenv("SD_JOB_ID")
+		}
 	case "pipeline":
 		scopeEnv = os.Getenv("SD_PIPELINE_ID")
 	}

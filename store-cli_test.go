@@ -49,6 +49,7 @@ func TestSkipCache(t *testing.T) {
 func TestMakeURL(t *testing.T) {
 	os.Setenv("SD_STORE_URL", "http://store.screwdriver.cd/v1/")
 	os.Setenv("SD_BUILD_ID", "10038")
+	os.Setenv("SD_JOB_ID", "888")
 	os.Setenv("SD_EVENT_ID", "499")
 	os.Setenv("SD_PIPELINE_ID", "100")
 	abspath, _ := filepath.Abs("./")
@@ -61,6 +62,7 @@ func TestMakeURL(t *testing.T) {
 		key       string
 		expected  string
 	}{
+		{"cache", "job", "/myprcache", "http://store.screwdriver.cd/v1/caches/jobs/987/%2Fmyprcache"},
 		{"cache", "event", "/mycache", "http://store.screwdriver.cd/v1/caches/events/499/%2Fmycache"},
 		{"cache", "event", "mycache", fmt.Sprintf("%s%s%s", "http://store.screwdriver.cd/v1/caches/events/499/", abspath, "%2Fmycache")},
 		{"cache", "event", "./mycache", fmt.Sprintf("%s%s%s", "http://store.screwdriver.cd/v1/caches/events/499/", abspath, "%2Fmycache")},
@@ -74,6 +76,10 @@ func TestMakeURL(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		if tc.key == "/myprcache" {
+			os.Setenv("SD_PULL_REQUEST", "900")
+			os.Setenv("SD_PR_PARENT_JOB_ID", "987")
+		}
 		i, _ := makeURL(tc.storeType, tc.scope, tc.key)
 		if i.String() != tc.expected {
 			t.Fatalf("Expected '%s' got '%s'", tc.expected, i)
