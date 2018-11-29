@@ -32,7 +32,7 @@ func TestSkipCache(t *testing.T) {
 		{"cache", "event", "get", "123", true},
 		{"cache", "event", "set", "123", true},
 		{"cache", "job", "get", "", false},
-		{"cache", "job", "set", "123", false},
+		{"cache", "job", "set", "123", true},
 		{"artifact", "event", "get", "", false},
 		{"log", "build", "set", "123", false},
 	}
