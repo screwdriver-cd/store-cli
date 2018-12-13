@@ -70,6 +70,7 @@ func TestMakeURL(t *testing.T) {
 		{"cache", "event", "/!-_.*'()&@:,.$=+?; space", "http://store.screwdriver.cd/v1/caches/events/499/%2F%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space"},
 		{"artifact", "event", "artifact-1", "http://store.screwdriver.cd/v1/builds/10038/ARTIFACTS/artifact-1"},
 		{"artifact", "build", "test", "http://store.screwdriver.cd/v1/builds/10038/ARTIFACTS/test"},
+		{"artifact", "", ".test", "http://store.screwdriver.cd/v1/builds/10038/ARTIFACTS/.test"},
 		{"artifact", "", "./test", "http://store.screwdriver.cd/v1/builds/10038/ARTIFACTS/test"},
 		{"artifact", "", "test/foo", "http://store.screwdriver.cd/v1/builds/10038/ARTIFACTS/test%2Ffoo"},
 		{"artifact", "", "test/foo./bar", "http://store.screwdriver.cd/v1/builds/10038/ARTIFACTS/test%2Ffoo.%2Fbar"},
