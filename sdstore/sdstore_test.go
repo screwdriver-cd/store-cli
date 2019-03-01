@@ -56,7 +56,7 @@ func makeFakeHTTPClient(t *testing.T, code int, body string, v func(r *http.Requ
 		} else if r.URL.String() == "http://fakestore.com/v1/caches/events/123/../data/emitterdata2_md5.json" {
 			w.Write([]byte("{\"../data/emitterdata2\":\"b567651333fff804168aabac8284d708\"}"))
 		} else {
-			w.Write([]byte("test-content"))
+			w.Write([]byte(body))
 		}
 	}))
 
@@ -369,7 +369,7 @@ func TestDownload(t *testing.T) {
 
 	want := "test-content"
 
-	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
+	http := makeFakeHTTPClient(t, 200, want, func(r *http.Request) {
 		if r.URL.Path != u.Path {
 			t.Errorf("Wrong URL path: %s", r.URL.Path)
 		}
@@ -479,7 +479,7 @@ func TestDownloadWriteBack(t *testing.T) {
 
 	want := "test-content"
 
-	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
+	http := makeFakeHTTPClient(t, 200, want, func(r *http.Request) {
 		called = true
 
 		if r.Method != "GET" {
@@ -523,7 +523,7 @@ func TestDownloadWriteBackSpecialFile(t *testing.T) {
 
 	want := "test-content"
 
-	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
+	http := makeFakeHTTPClient(t, 200, want, func(r *http.Request) {
 		called = true
 
 		if r.Method != "GET" {
@@ -690,30 +690,37 @@ func TestCheckForRetry(t *testing.T) {
 
 func TestDo(t *testing.T) {
 	client := newStore(.01, 4)
-	callCount := 0
-	client.client = makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
-		callCount++
-	})
-	req, _ := http.NewRequest("GET", "http://fakestore/v1/test", nil)
+	req, _ := http.NewRequest("GET", "http://fakestore/v2/test", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", client.token))
-	fmt.Println(req.URL.String())
-	_, err := client.do(req)
-	assert.NotNil(t, err, "when failed retry until max retry num, it should return err")
-	assert.Equal(t, 4, callCount, "client must retry specified number")
 
-	callCount = 0
-	client.client = makeFakeHTTPClient(t, 200, "test-content", func(r *http.Request) {
-		callCount++
-	})
-	res, err := client.do(req)
-	assert.Nil(t, err, "when got 200 should return no error")
-	b, _ := ioutil.ReadAll(res.Body)
-	assert.Equal(t, "test-content", string(b), "when 200 should return proper body")
+	cases := []struct {
+		statusCode  int
+		body        string
+		callCount   int
+		err         error
+		responseNil bool
+	}{
+		{statusCode: 500, body: "ERROR", callCount: 4, err: fmt.Errorf("getting from http://fakestore/v2/test after 4 retries"), responseNil: true},
+		{statusCode: 200, body: "test-contents", callCount: 1},
+		{statusCode: 404, body: "Not Found", callCount: 1, err: fmt.Errorf("got 404 Not Found from http://fakestore/v2/test. stop retring")},
+	}
 
-	callCount = 0
-	client.client = makeFakeHTTPClient(t, 404, "test-content", func(r *http.Request) {
-		callCount++
-	})
-	_, err = client.do(req)
-	assert.Equal(t, "got 404 Not Found from http://fakestore/v1/test. stop retring", err.Error())
+	for _, c := range cases {
+		when := fmt.Sprintf("when statusCode %d and body %s", c.statusCode, c.body)
+		callCount := 0
+		client.client = makeFakeHTTPClient(t, c.statusCode, c.body, func(r *http.Request) {
+			callCount++
+		})
+		res, err := client.do(req)
+
+		assert.Equal(t, c.callCount, callCount, when)
+		assert.Exactly(t, c.err, err, when)
+		if c.responseNil {
+			assert.Nil(t, res, when)
+		} else {
+			b, _ := ioutil.ReadAll(res.Body)
+			assert.Equal(t, c.body, string(b), when)
+			res.Body.Close()
+		}
+	}
 }
