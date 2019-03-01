@@ -51,9 +51,9 @@ func makeFakeHTTPClient(t *testing.T, code int, body string, v func(r *http.Requ
 		w.WriteHeader(code)
 		w.Header().Set("Content-Type", "application/json")
 
-		if r.URL.String() == "http://fakestore.com/v1/caches/events/123/../data/emitterdata_md5.json" {
+		if r.URL.String() == "http://fakestore.example.com/v1/caches/events/123/../data/emitterdata_md5.json" {
 			w.Write([]byte("{\"../data/emitterdata\":\"73a256001a246e77fd1941ca007b50r2\"}"))
-		} else if r.URL.String() == "http://fakestore.com/v1/caches/events/123/../data/emitterdata2_md5.json" {
+		} else if r.URL.String() == "http://fakestore.example.com/v1/caches/events/123/../data/emitterdata2_md5.json" {
 			w.Write([]byte("{\"../data/emitterdata2\":\"b567651333fff804168aabac8284d708\"}"))
 		} else {
 			w.Write([]byte(body))
@@ -121,7 +121,7 @@ func testZipFile() *os.File {
 
 func TestUpload(t *testing.T) {
 	token := "faketoken"
-	u, _ := url.Parse("http://fakestore.com/builds/emitterdata")
+	u, _ := url.Parse("http://fakestore.example.com/builds/emitterdata")
 	uploader := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -170,7 +170,7 @@ func TestUploadZipWithChange(t *testing.T) {
 	token := "faketoken"
 	file := "../data/emitterdata"
 	zipfile := file + ".zip"
-	u, _ := url.Parse("http://fakestore.com/v1/caches/events/123/" + file)
+	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/123/" + file)
 	uploader := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -272,7 +272,7 @@ func TestUploadZipWithChange(t *testing.T) {
 func TestUploadZipNoChange(t *testing.T) {
 	token := "faketoken"
 	file := "../data/emitterdata2"
-	u, _ := url.Parse("http://fakestore.com/v1/caches/events/123/" + file)
+	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/123/" + file)
 	uploader := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -309,7 +309,7 @@ func TestUploadZipNoChange(t *testing.T) {
 
 func TestUploadRetry(t *testing.T) {
 	token := "faketoken"
-	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
 	uploader := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -333,7 +333,7 @@ func TestUploadRetry(t *testing.T) {
 
 func TestUploadZipRetry(t *testing.T) {
 	token := "faketoken"
-	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
 	uploader := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -358,7 +358,7 @@ func TestUploadZipRetry(t *testing.T) {
 
 func TestDownload(t *testing.T) {
 	token := "faketoken"
-	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
 	downloader := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -399,7 +399,7 @@ func TestDownloadZip(t *testing.T) {
 	testfilepath := abspath + "/../data/test.zip"
 	testfilepath = url.QueryEscape(testfilepath)
 
-	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfilepath)
+	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/1234/" + testfilepath)
 	downloader := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -443,7 +443,7 @@ func TestDownloadZip(t *testing.T) {
 
 func TestDownloadRetry(t *testing.T) {
 	token := "faketoken"
-	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
 	downloader := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -468,7 +468,7 @@ func TestDownloadRetry(t *testing.T) {
 func TestDownloadWriteBack(t *testing.T) {
 	token := "faketoken"
 	testfilepath := "/tmp/test-data/node_modules/schema/file"
-	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfilepath)
+	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/1234/" + testfilepath)
 	downloader := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -512,7 +512,7 @@ func TestDownloadWriteBackSpecialFile(t *testing.T) {
 	token := "faketoken"
 	testfolder := "/tmp/test-data/node_modules/schema/"
 	testfilename := "!-_.*'()&@:,.$= ?; space"
-	u, _ := url.Parse("http://fakestore.com/v1/caches/events/1234/" + testfolder + "%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space")
+	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/1234/" + testfolder + "%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space")
 	downloader := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -555,7 +555,7 @@ func TestDownloadWriteBackSpecialFile(t *testing.T) {
 
 func TestRemove(t *testing.T) {
 	token := "faketoken"
-	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
 	removeRes := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -586,7 +586,7 @@ func TestRemove(t *testing.T) {
 
 func TestRemoveRetry(t *testing.T) {
 	token := "faketoken"
-	u, _ := url.Parse("http://fakestore.com/builds/1234-test")
+	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
 	removeRes := &sdStore{
 		token:       token,
 		client:      &http.Client{Timeout: 10 * time.Second},
@@ -690,7 +690,7 @@ func TestCheckForRetry(t *testing.T) {
 
 func TestDo(t *testing.T) {
 	client := newStore(.01, 4)
-	req, _ := http.NewRequest("GET", "http://fakestore/v2/test", nil)
+	req, _ := http.NewRequest("GET", "http://fakestore.example.com/v1/test", nil)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", client.token))
 
 	cases := []struct {
@@ -700,9 +700,9 @@ func TestDo(t *testing.T) {
 		err         error
 		responseNil bool
 	}{
-		{statusCode: 500, body: "ERROR", callCount: 4, err: fmt.Errorf("getting from http://fakestore/v2/test after 4 retries"), responseNil: true},
+		{statusCode: 500, body: "ERROR", callCount: 4, err: fmt.Errorf("getting from http://fakestore.example.com/v1/test after 4 retries"), responseNil: true},
 		{statusCode: 200, body: "test-contents", callCount: 1},
-		{statusCode: 404, body: "Not Found", callCount: 1, err: fmt.Errorf("got 404 Not Found from http://fakestore/v2/test. stop retring")},
+		{statusCode: 404, body: "Not Found", callCount: 1, err: fmt.Errorf("got 404 Not Found from http://fakestore.example.com/v1/test. stop retring")},
 	}
 
 	for _, c := range cases {
