@@ -672,7 +672,7 @@ func TestCheckForRetry(t *testing.T) {
 		{statusCode: http.StatusBadRequest, doesRetry: true},
 		{statusCode: http.StatusUnauthorized, doesRetry: true},
 		{statusCode: http.StatusForbidden, doesRetry: true},
-		{statusCode: http.StatusNotFound, doesRetry: false, retryErr: fmt.Errorf("got 404 Not Found. stop retring")},
+		{statusCode: http.StatusNotFound, doesRetry: false, retryErr: fmt.Errorf("got code 404. stop retring")},
 		{statusCode: http.StatusRequestTimeout, doesRetry: true},
 		// status 500~
 		{err: nil, statusCode: http.StatusInternalServerError, doesRetry: true},
@@ -681,7 +681,7 @@ func TestCheckForRetry(t *testing.T) {
 	for _, c := range cases {
 		res := &http.Response{}
 		res.StatusCode = c.statusCode
-		res.Status = "404 Not Found"
+		res.Status = fmt.Sprintf("code %d", res.StatusCode)
 		retry, err := client.checkForRetry(res, c.err)
 		assert.Equal(t, c.doesRetry, retry, fmt.Sprintf("when status is %d and err is %q", c.statusCode, c.err))
 		assert.Equal(t, c.retryErr, err, "when status is %d and err is %q", c.statusCode, c.err)
