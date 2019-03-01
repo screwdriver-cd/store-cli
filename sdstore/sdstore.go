@@ -400,26 +400,27 @@ func (s *sdStore) backOff(attemptNum int) time.Duration {
 
 func (s *sdStore) checkForRetry(res *http.Response, err error) bool {
 	if err != nil {
+		log.Printf("failed to request to store: %v", err)
 		return true
 	}
-	if res.StatusCode == http.StatusNotFound {
-		return false
+	if res.StatusCode/100 != 2 && res.StatusCode != http.StatusNotFound {
+		return true
 	}
-	return true
+
+	return false
 }
 
 func (s *sdStore) do(req *http.Request) (*http.Response, error) {
 	attemptNum := 0
 	for {
-		attemptNum := attemptNum + 1
+		attemptNum = attemptNum + 1
 		res, err := s.client.Do(req)
 		retry := s.checkForRetry(res, err)
 		log.Printf("(Try %d of %d) error received from file removal: %v", attemptNum, s.maxRetries, err)
 		if !retry {
 			return res, err
 		}
-		remain := s.maxRetries - 1
-		if remain == 0 {
+		if attemptNum == s.maxRetries {
 			break
 		}
 		time.Sleep(s.backOff(attemptNum))
