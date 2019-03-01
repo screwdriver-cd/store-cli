@@ -402,10 +402,10 @@ func (s *sdStore) checkForRetry(res *http.Response, err error) bool {
 	if err != nil {
 		return true
 	}
-	if res.StatusCode == 0 || res.StatusCode >= 500 {
-		return true
+	if res.StatusCode == http.StatusNotFound {
+		return false
 	}
-	return false
+	return true
 }
 
 func (s *sdStore) do(req *http.Request) (*http.Response, error) {
