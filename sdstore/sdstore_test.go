@@ -660,8 +660,9 @@ func TestCheckForRetry(t *testing.T) {
 		err        error
 		statusCode int
 		doesRetry  bool
+		retryErr   error
 	}{
-		{err: fmt.Errorf("awful things happen"), statusCode: 0, doesRetry: true},
+		{err: fmt.Errorf("awful things happen"), statusCode: 0, doesRetry: true, retryErr: fmt.Errorf("awful things happen")},
 		// statut 200~
 		{statusCode: http.StatusOK, doesRetry: false},
 		{statusCode: http.StatusCreated, doesRetry: false},
@@ -671,7 +672,7 @@ func TestCheckForRetry(t *testing.T) {
 		{statusCode: http.StatusBadRequest, doesRetry: true},
 		{statusCode: http.StatusUnauthorized, doesRetry: true},
 		{statusCode: http.StatusForbidden, doesRetry: true},
-		{statusCode: http.StatusNotFound, doesRetry: false},
+		{statusCode: http.StatusNotFound, doesRetry: false, retryErr: fmt.Errorf("got 404 Not Found. stop retring")},
 		{statusCode: http.StatusRequestTimeout, doesRetry: true},
 		// status 500~
 		{err: nil, statusCode: http.StatusInternalServerError, doesRetry: true},
@@ -680,8 +681,10 @@ func TestCheckForRetry(t *testing.T) {
 	for _, c := range cases {
 		res := &http.Response{}
 		res.StatusCode = c.statusCode
-		retry := client.checkForRetry(res, c.err)
+		res.Status = "404 Not Found"
+		retry, err := client.checkForRetry(res, c.err)
 		assert.Equal(t, c.doesRetry, retry, fmt.Sprintf("when status is %d and err is %q", c.statusCode, c.err))
+		assert.Equal(t, c.retryErr, err, "when status is %d and err is %q", c.statusCode, c.err)
 	}
 }
 
@@ -707,4 +710,10 @@ func TestDo(t *testing.T) {
 	b, _ := ioutil.ReadAll(res.Body)
 	assert.Equal(t, "test-content", string(b), "when 200 should return proper body")
 
+	callCount = 0
+	client.client = makeFakeHTTPClient(t, 404, "test-content", func(r *http.Request) {
+		callCount++
+	})
+	_, err = client.do(req)
+	assert.Equal(t, "got 404 Not Found from http://fakestore/v1/test. stop retring", err.Error())
 }

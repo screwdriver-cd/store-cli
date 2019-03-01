@@ -398,16 +398,23 @@ func (s *sdStore) backOff(attemptNum int) time.Duration {
 	return time.Duration(float64(attemptNum*attemptNum)*s.retryScaler) * time.Second
 }
 
-func (s *sdStore) checkForRetry(res *http.Response, err error) bool {
+func (s *sdStore) checkForRetry(res *http.Response, err error) (bool, error) {
 	if err != nil {
 		log.Printf("failed to request to store: %v", err)
-		return true
+		return true, err
 	}
-	if res.StatusCode/100 != 2 && res.StatusCode != http.StatusNotFound {
-		return true
+	if res.StatusCode == http.StatusNotFound {
+		if res.Request != nil && res.Request.URL != nil {
+			return false, fmt.Errorf("got %s from %s. stop retring", res.Status, res.Request.URL)
+		}
+		return false, fmt.Errorf("got %s. stop retring", res.Status)
 	}
 
-	return false
+	if res.StatusCode/100 != 2 {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (s *sdStore) do(req *http.Request) (*http.Response, error) {
@@ -415,11 +422,12 @@ func (s *sdStore) do(req *http.Request) (*http.Response, error) {
 	for {
 		attemptNum = attemptNum + 1
 		res, err := s.client.Do(req)
-		retry := s.checkForRetry(res, err)
+		retry, err := s.checkForRetry(res, err)
 		log.Printf("(Try %d of %d) error received from file removal: %v", attemptNum, s.maxRetries, err)
 		if !retry {
 			return res, err
 		}
+
 		if attemptNum == s.maxRetries {
 			break
 		}
