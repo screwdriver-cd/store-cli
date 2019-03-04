@@ -76,21 +76,12 @@ func (e SDError) Error() string {
 
 // Remove a file from a path within the SD Store
 func (s *sdStore) Remove(u *url.URL) error {
-	var err error
-	for i := 0; i < s.maxRetries; i++ {
-		time.Sleep(time.Duration(float64(i*i)*s.retryScaler) * time.Second)
-
-		_, err := s.remove(u)
-		if err != nil {
-			log.Printf("(Try %d of %d) error received from file removal: %v", i+1, s.maxRetries, err)
-			continue
-		}
-
-		log.Printf("Deletion from %s successful.", u.String())
-
-		return nil
+	_, err := s.remove(u)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("removing from %s after %d retries: %v", u, s.maxRetries, err)
+	log.Printf("Deletion from %s successful.", u.String())
+	return nil
 }
 
 // Download a file from a path within the SD Store
@@ -258,15 +249,11 @@ func (s *sdStore) remove(url *url.URL) ([]byte, error) {
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
 
-	res, err := s.client.Do(req)
+	res, err := s.do(req)
 	if err != nil {
 		return nil, err
 	}
-
 	defer res.Body.Close()
-	if res.StatusCode/100 == 5 {
-		return nil, fmt.Errorf("response code %d", res.StatusCode)
-	}
 
 	return handleResponse(res)
 }
