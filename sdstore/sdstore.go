@@ -405,9 +405,9 @@ func (s *sdStore) checkForRetry(res *http.Response, err error) (bool, error) {
 	}
 	if res.StatusCode == http.StatusNotFound {
 		if res.Request != nil && res.Request.URL != nil {
-			return false, fmt.Errorf("got %s from %s. stop retring", res.Status, res.Request.URL)
+			return false, fmt.Errorf("got %s from %s. stop retrying", res.Status, res.Request.URL)
 		}
-		return false, fmt.Errorf("got %s. stop retring", res.Status)
+		return false, fmt.Errorf("got %s. stop retrying", res.Status)
 	}
 
 	if res.StatusCode/100 != 2 {
