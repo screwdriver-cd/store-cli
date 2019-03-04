@@ -368,15 +368,11 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 	req.Header.Set("Content-Type", bodyType)
 	req.ContentLength = size
 
-	res, err := s.client.Do(req)
+	res, err := s.do(req)
 	if err != nil {
 		return nil, err
 	}
-
 	defer res.Body.Close()
-	if res.StatusCode/100 == 5 {
-		return nil, fmt.Errorf("response code %d", res.StatusCode)
-	}
 
 	return handleResponse(res)
 }
