@@ -16,10 +16,6 @@ import (
 	"time"
 )
 
-var retryScaler = 1.0
-
-const maxRetries = 3
-
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
 	Upload(u *url.URL, filePath string, toCompress bool) error
@@ -28,15 +24,19 @@ type SDStore interface {
 }
 
 type sdStore struct {
-	token  string
-	client *http.Client
+	token       string
+	client      *http.Client
+	retryScaler float64
+	maxRetries  int
 }
 
 // NewStore returns an SDStore instance.
 func NewStore(token string) SDStore {
 	return &sdStore{
-		token,
-		&http.Client{Timeout: 300 * time.Second},
+		token:       token,
+		client:      &http.Client{Timeout: 300 * time.Second},
+		retryScaler: 1.0,
+		maxRetries:  3,
 	}
 }
 
@@ -77,12 +77,12 @@ func (e SDError) Error() string {
 // Remove a file from a path within the SD Store
 func (s *sdStore) Remove(u *url.URL) error {
 	var err error
-	for i := 0; i < maxRetries; i++ {
-		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
+	for i := 0; i < s.maxRetries; i++ {
+		time.Sleep(time.Duration(float64(i*i)*s.retryScaler) * time.Second)
 
 		_, err := s.remove(u)
 		if err != nil {
-			log.Printf("(Try %d of %d) error received from file removal: %v", i+1, maxRetries, err)
+			log.Printf("(Try %d of %d) error received from file removal: %v", i+1, s.maxRetries, err)
 			continue
 		}
 
@@ -90,28 +90,18 @@ func (s *sdStore) Remove(u *url.URL) error {
 
 		return nil
 	}
-	return fmt.Errorf("removing from %s after %d retries: %v", u, maxRetries, err)
+	return fmt.Errorf("removing from %s after %d retries: %v", u, s.maxRetries, err)
 }
 
 // Download a file from a path within the SD Store
 func (s *sdStore) Download(url *url.URL, toExtract bool) ([]byte, error) {
-	var err error
-
-	for i := 0; i < maxRetries; i++ {
-		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
-
-		res, err := s.get(url, toExtract)
-		if err != nil {
-			log.Printf("(Try %d of %d) error received from file download: %v", i+1, maxRetries, err)
-			continue
-		}
-
-		log.Printf("Download from %s successful.", url.String())
-
-		return res, nil
+	res, err := s.get(url, toExtract)
+	if err != nil {
+		return nil, err
 	}
+	log.Printf("Download from %s successful.", url.String())
 
-	return nil, fmt.Errorf("getting from %s after %d retries: %v", url, maxRetries, err)
+	return res, nil
 }
 
 func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, error) {
@@ -167,8 +157,8 @@ func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, er
 func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 	var err error
 
-	for i := 0; i < maxRetries; i++ {
-		time.Sleep(time.Duration(float64(i*i)*retryScaler) * time.Second)
+	for i := 0; i < s.maxRetries; i++ {
+		time.Sleep(time.Duration(float64(i*i)*s.retryScaler) * time.Second)
 
 		if toCompress {
 			var fileName string
@@ -182,13 +172,13 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			}
 
 			if err != nil {
-				log.Printf("(Try %d of %d) error received from generating md5: %v", i+1, maxRetries, err)
+				log.Printf("(Try %d of %d) error received from generating md5: %v", i+1, s.maxRetries, err)
 				continue
 			}
 
 			err = s.putFile(encodedURL, "application/json", md5Json)
 			if err != nil {
-				log.Printf("(Try %d of %d) error received from uploading md5 json: %v", i+1, maxRetries, err)
+				log.Printf("(Try %d of %d) error received from uploading md5 json: %v", i+1, s.maxRetries, err)
 				continue
 			}
 
@@ -201,14 +191,14 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			zipPath, err = filepath.Abs(fmt.Sprintf("%s.zip", fileName))
 
 			if err != nil {
-				log.Printf("(Try %d of %d) Unable to determine filepath: %v", i+1, maxRetries, err)
+				log.Printf("(Try %d of %d) Unable to determine filepath: %v", i+1, s.maxRetries, err)
 				continue
 			}
 
 			absPath, _ := filepath.Abs(filePath)
 			err = Zip(absPath, zipPath)
 			if err != nil {
-				log.Printf("(Try %d of %d) Unable to zip file: %v", i+1, maxRetries, err)
+				log.Printf("(Try %d of %d) Unable to zip file: %v", i+1, s.maxRetries, err)
 				continue
 			}
 
@@ -217,7 +207,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			errRemove := os.Remove(zipPath)
 
 			if err != nil {
-				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
+				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, s.maxRetries, err)
 				continue
 			}
 
@@ -231,14 +221,14 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 		} else {
 			err := s.putFile(u, "text/plain", filePath)
 			if err != nil {
-				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, maxRetries, err)
+				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, s.maxRetries, err)
 				continue
 			}
 			log.Printf("Upload to %s successful.", u.String())
 			return nil
 		}
 	}
-	return fmt.Errorf("posting to %s after %d retries: %v", filePath, maxRetries, err)
+	return fmt.Errorf("posting to %s after %d retries: %v", filePath, s.maxRetries, err)
 }
 
 // token header for request
@@ -301,17 +291,11 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 	}
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
-
-	res, err := s.client.Do(req)
+	res, err := s.do(req)
 	if err != nil {
 		return nil, err
 	}
-
 	defer res.Body.Close()
-
-	if res.StatusCode/100 == 5 {
-		return nil, fmt.Errorf("response code %d", res.StatusCode)
-	}
 
 	body, err := handleResponse(res)
 	if err != nil {
@@ -408,4 +392,46 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 	}
 
 	return handleResponse(res)
+}
+
+func (s *sdStore) backOff(attemptNum int) time.Duration {
+	return time.Duration(float64(attemptNum*attemptNum)*s.retryScaler) * time.Second
+}
+
+func (s *sdStore) checkForRetry(res *http.Response, err error) (bool, error) {
+	if err != nil {
+		log.Printf("failed to request to store: %v", err)
+		return true, err
+	}
+	if res.StatusCode == http.StatusNotFound {
+		if res.Request != nil && res.Request.URL != nil {
+			return false, fmt.Errorf("got %s from %s. stop retrying", res.Status, res.Request.URL)
+		}
+		return false, fmt.Errorf("got %s. stop retrying", res.Status)
+	}
+
+	if res.StatusCode/100 != 2 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (s *sdStore) do(req *http.Request) (*http.Response, error) {
+	attemptNum := 0
+	for {
+		attemptNum = attemptNum + 1
+		res, err := s.client.Do(req)
+		retry, err := s.checkForRetry(res, err)
+		log.Printf("(Try %d of %d) error received from %s %v: %v", attemptNum, s.maxRetries, req.Method, req.URL, err)
+		if !retry {
+			return res, err
+		}
+
+		if attemptNum == s.maxRetries {
+			break
+		}
+		time.Sleep(s.backOff(attemptNum))
+	}
+	return nil, fmt.Errorf("getting from %s after %d retries", req.URL, s.maxRetries)
 }
