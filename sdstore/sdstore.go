@@ -103,8 +103,7 @@ func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, er
 
 	_, err = s.Download(url, false)
 	if err == nil {
-		var oldMd5FilePath string
-		oldMd5FilePath = fmt.Sprintf("%s_md5.json", filepath.Clean(path))
+		oldMd5FilePath := fmt.Sprintf("%s_md5.json", filepath.Clean(path))
 		oldMd5File, err := ioutil.ReadFile(oldMd5FilePath)
 		if err != nil {
 			return "", err
@@ -123,22 +122,18 @@ func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, er
 	}
 
 	jsonString, err := json.Marshal(newMd5)
-
 	if err != nil {
 		return "", err
 	}
 
-	var md5Path string
-	md5Path = fmt.Sprintf("%s_md5.json", filepath.Base(path))
+	md5Path := fmt.Sprintf("%s_md5.json", filepath.Base(path))
 	jsonFile, err := os.Create(md5Path)
-
 	if err != nil {
 		return "", err
 	}
 	defer jsonFile.Close()
 
 	jsonFile.Write(jsonString)
-	jsonFile.Close()
 
 	return md5Path, nil
 }

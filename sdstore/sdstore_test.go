@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -317,16 +318,16 @@ func TestUploadRetry(t *testing.T) {
 		maxRetries:  3.0,
 	}
 
-	callCount := 0
+	callCount := int32(0)
 	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
-		callCount++
+		atomic.AddInt32(&callCount, 1)
 	})
 	uploader.client = http
 	err := uploader.Upload(u, testFile().Name(), false)
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
 	}
-	if callCount != 3 {
+	if atomic.LoadInt32(&callCount) != 3 {
 		t.Errorf("Expected 3 retries, got %d", callCount)
 	}
 }
@@ -341,9 +342,9 @@ func TestUploadZipRetry(t *testing.T) {
 		maxRetries:  3.0,
 	}
 
-	callCount := 0
+	callCount := int32(0)
 	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
-		callCount++
+		atomic.AddInt32(&callCount, 1)
 		os.Remove("emitterdata_md5.json")
 	})
 	uploader.client = http
@@ -351,8 +352,8 @@ func TestUploadZipRetry(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
 	}
-	if callCount != 12 {
-		t.Errorf("Expected 42 retries, got %d", callCount)
+	if atomic.LoadInt32(&callCount) != 6 {
+		t.Errorf("Expected 6 retries, got %d", callCount)
 	}
 }
 
