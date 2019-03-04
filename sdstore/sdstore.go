@@ -191,21 +191,22 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 		log.Printf("failed to zip files from %v to %v", absPath, zipPath)
 		return err
 	}
+	defer func() {
+		if err := os.Remove(zipPath); err != nil {
+			log.Printf("Unable to remove zip file: %v", err)
+		}
+	}()
 
 	encodedURL, err = url.Parse(fmt.Sprintf("%s%s", u.String(), ".zip"))
 	if err != nil {
 		return err
 	}
 	err = s.putFile(encodedURL, "text/plain", zipPath)
-	defer func() {
-		if err := os.Remove(zipPath); err != nil {
-			log.Printf("Upload to %s successful.", u.String())
-		}
-	}()
 	if err != nil {
 		log.Printf("failed to upload file")
 		return err
 	}
+	log.Printf("Upload to %s successful.", u.String())
 
 	return nil
 }
