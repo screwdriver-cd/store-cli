@@ -336,25 +336,12 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error 
 	}
 	fsize := stat.Size()
 
-	reader, writer := io.Pipe()
-
-	done := make(chan error)
-	go func() {
-		_, err := s.put(url, bodyType, reader, fsize)
-		if err != nil {
-			done <- err
-			return
-		}
-
-		done <- nil
-	}()
-
-	io.Copy(writer, input)
-	if err := writer.Close(); err != nil {
+	_, err = s.put(url, bodyType, input, fsize)
+	if err != nil {
 		return err
 	}
 
-	return <-done
+	return nil
 }
 
 // PUT request to SD store
