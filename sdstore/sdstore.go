@@ -382,10 +382,10 @@ func (s *sdStore) do(req *http.Request) (*http.Response, error) {
 		attemptNum = attemptNum + 1
 		res, err := s.client.Do(req)
 		retry, err := s.checkForRetry(res, err)
-		log.Printf("(Try %d of %d) error received from %s %v: %v", attemptNum, s.maxRetries, req.Method, req.URL, err)
 		if !retry {
 			return res, err
 		}
+		log.Printf("(Try %d of %d) error received from %s %v: %v", attemptNum, s.maxRetries, req.Method, req.URL, err)
 
 		if attemptNum == s.maxRetries {
 			break
