@@ -76,21 +76,12 @@ func (e SDError) Error() string {
 
 // Remove a file from a path within the SD Store
 func (s *sdStore) Remove(u *url.URL) error {
-	var err error
-	for i := 0; i < s.maxRetries; i++ {
-		time.Sleep(time.Duration(float64(i*i)*s.retryScaler) * time.Second)
-
-		_, err := s.remove(u)
-		if err != nil {
-			log.Printf("(Try %d of %d) error received from file removal: %v", i+1, s.maxRetries, err)
-			continue
-		}
-
-		log.Printf("Deletion from %s successful.", u.String())
-
-		return nil
+	_, err := s.remove(u)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("removing from %s after %d retries: %v", u, s.maxRetries, err)
+	log.Printf("Deletion from %s successful.", u.String())
+	return nil
 }
 
 // Download a file from a path within the SD Store
@@ -112,8 +103,7 @@ func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, er
 
 	_, err = s.Download(url, false)
 	if err == nil {
-		var oldMd5FilePath string
-		oldMd5FilePath = fmt.Sprintf("%s_md5.json", filepath.Clean(path))
+		oldMd5FilePath := fmt.Sprintf("%s_md5.json", filepath.Clean(path))
 		oldMd5File, err := ioutil.ReadFile(oldMd5FilePath)
 		if err != nil {
 			return "", err
@@ -132,22 +122,18 @@ func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, er
 	}
 
 	jsonString, err := json.Marshal(newMd5)
-
 	if err != nil {
 		return "", err
 	}
 
-	var md5Path string
-	md5Path = fmt.Sprintf("%s_md5.json", filepath.Base(path))
+	md5Path := fmt.Sprintf("%s_md5.json", filepath.Base(path))
 	jsonFile, err := os.Create(md5Path)
-
 	if err != nil {
 		return "", err
 	}
 	defer jsonFile.Close()
 
 	jsonFile.Write(jsonString)
-	jsonFile.Close()
 
 	return md5Path, nil
 }
@@ -155,80 +141,74 @@ func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, er
 // Uploads sends a file to a path within the SD Store. The path is relative to
 // the build/event path within the SD Store, e.g. http://store.screwdriver.cd/builds/abc/<storePath>
 func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
-	var err error
-
-	for i := 0; i < s.maxRetries; i++ {
-		time.Sleep(time.Duration(float64(i*i)*s.retryScaler) * time.Second)
-
-		if toCompress {
-			var fileName string
-			fileName = filepath.Base(filePath)
-			encodedURL, _ := url.Parse(fmt.Sprintf("%s%s", u.String(), "_md5.json"))
-			md5Json, err := s.GenerateAndCheckMd5Json(encodedURL, filePath)
-
-			if err != nil && err.Error() == "Contents unchanged" {
-				log.Printf("No change to %s, aborting upload", filePath)
-				return nil
-			}
-
-			if err != nil {
-				log.Printf("(Try %d of %d) error received from generating md5: %v", i+1, s.maxRetries, err)
-				continue
-			}
-
-			err = s.putFile(encodedURL, "application/json", md5Json)
-			if err != nil {
-				log.Printf("(Try %d of %d) error received from uploading md5 json: %v", i+1, s.maxRetries, err)
-				continue
-			}
-
-			err = os.Remove(md5Json)
-			if err != nil {
-				log.Printf("Unable to remove md5 file from path: %s, continuing", md5Json)
-			}
-
-			var zipPath string
-			zipPath, err = filepath.Abs(fmt.Sprintf("%s.zip", fileName))
-
-			if err != nil {
-				log.Printf("(Try %d of %d) Unable to determine filepath: %v", i+1, s.maxRetries, err)
-				continue
-			}
-
-			absPath, _ := filepath.Abs(filePath)
-			err = Zip(absPath, zipPath)
-			if err != nil {
-				log.Printf("(Try %d of %d) Unable to zip file: %v", i+1, s.maxRetries, err)
-				continue
-			}
-
-			encodedURL, _ = url.Parse(fmt.Sprintf("%s%s", u.String(), ".zip"))
-			err = s.putFile(encodedURL, "text/plain", zipPath)
-			errRemove := os.Remove(zipPath)
-
-			if err != nil {
-				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, s.maxRetries, err)
-				continue
-			}
-
-			if errRemove != nil {
-				log.Printf("Unable to remove zip file: %v", err)
-			}
-
-			log.Printf("Upload to %s successful.", u.String())
-
-			return nil
-		} else {
-			err := s.putFile(u, "text/plain", filePath)
-			if err != nil {
-				log.Printf("(Try %d of %d) error received from file upload: %v", i+1, s.maxRetries, err)
-				continue
-			}
-			log.Printf("Upload to %s successful.", u.String())
-			return nil
+	if !toCompress {
+		err := s.putFile(u, "text/plain", filePath)
+		if err != nil {
+			log.Printf("failed to upload files %v", filePath)
+			return err
 		}
+		log.Printf("Upload to %s successful.", u.String())
+		return nil
 	}
-	return fmt.Errorf("posting to %s after %d retries: %v", filePath, s.maxRetries, err)
+
+	fileName := filepath.Base(filePath)
+	encodedURL, err := url.Parse(fmt.Sprintf("%s%s", u.String(), "_md5.json"))
+	if err != nil {
+		return err
+	}
+	md5Json, err := s.GenerateAndCheckMd5Json(encodedURL, filePath)
+	if err != nil && err.Error() == "Contents unchanged" {
+		log.Printf("No change to %s, aborting upload", filePath)
+		return nil
+	}
+	if err != nil {
+		log.Printf("failed to generating md5 at %s", filePath)
+		return err
+	}
+
+	err = s.putFile(encodedURL, "application/json", md5Json)
+	if err != nil {
+		log.Printf("failed to upload md5 json %s", md5Json)
+		return err
+	}
+
+	err = os.Remove(md5Json)
+	if err != nil {
+		log.Printf("Unable to remove md5 file from path: %s, continuing", md5Json)
+	}
+
+	zipPath, err := filepath.Abs(fmt.Sprintf("%s.zip", fileName))
+	if err != nil {
+		return err
+	}
+
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return err
+	}
+	err = Zip(absPath, zipPath)
+	if err != nil {
+		log.Printf("failed to zip files from %v to %v", absPath, zipPath)
+		return err
+	}
+	defer func() {
+		if err := os.Remove(zipPath); err != nil {
+			log.Printf("Unable to remove zip file: %v", err)
+		}
+	}()
+
+	encodedURL, err = url.Parse(fmt.Sprintf("%s%s", u.String(), ".zip"))
+	if err != nil {
+		return err
+	}
+	err = s.putFile(encodedURL, "text/plain", zipPath)
+	if err != nil {
+		log.Printf("failed to upload file")
+		return err
+	}
+	log.Printf("Upload to %s successful.", u.String())
+
+	return nil
 }
 
 // token header for request
@@ -258,15 +238,11 @@ func (s *sdStore) remove(url *url.URL) ([]byte, error) {
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
 
-	res, err := s.client.Do(req)
+	res, err := s.do(req)
 	if err != nil {
 		return nil, err
 	}
-
 	defer res.Body.Close()
-	if res.StatusCode/100 == 5 {
-		return nil, fmt.Errorf("response code %d", res.StatusCode)
-	}
 
 	return handleResponse(res)
 }
@@ -349,25 +325,12 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error 
 	}
 	fsize := stat.Size()
 
-	reader, writer := io.Pipe()
-
-	done := make(chan error)
-	go func() {
-		_, err := s.put(url, bodyType, reader, fsize)
-		if err != nil {
-			done <- err
-			return
-		}
-
-		done <- nil
-	}()
-
-	io.Copy(writer, input)
-	if err := writer.Close(); err != nil {
+	_, err = s.put(url, bodyType, input, fsize)
+	if err != nil {
 		return err
 	}
 
-	return <-done
+	return nil
 }
 
 // PUT request to SD store
@@ -381,15 +344,11 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 	req.Header.Set("Content-Type", bodyType)
 	req.ContentLength = size
 
-	res, err := s.client.Do(req)
+	res, err := s.do(req)
 	if err != nil {
 		return nil, err
 	}
-
 	defer res.Body.Close()
-	if res.StatusCode/100 == 5 {
-		return nil, fmt.Errorf("response code %d", res.StatusCode)
-	}
 
 	return handleResponse(res)
 }
@@ -423,10 +382,10 @@ func (s *sdStore) do(req *http.Request) (*http.Response, error) {
 		attemptNum = attemptNum + 1
 		res, err := s.client.Do(req)
 		retry, err := s.checkForRetry(res, err)
-		log.Printf("(Try %d of %d) error received from %s %v: %v", attemptNum, s.maxRetries, req.Method, req.URL, err)
 		if !retry {
 			return res, err
 		}
+		log.Printf("(Try %d of %d) error received from %s %v: %v", attemptNum, s.maxRetries, req.Method, req.URL, err)
 
 		if attemptNum == s.maxRetries {
 			break
