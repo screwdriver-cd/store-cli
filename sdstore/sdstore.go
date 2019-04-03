@@ -370,7 +370,7 @@ func (s *sdStore) checkForRetry(res *http.Response, err error) (bool, error) {
 	}
 
 	if res.StatusCode/100 != 2 {
-		return true, fmt.Errorf("got %s from %s.", res.Status, res.Request.URL)
+		return true, fmt.Errorf("got %s.", res.Status)
 	}
 
 	return false, nil
@@ -388,9 +388,8 @@ func (s *sdStore) do(req *http.Request) (*http.Response, error) {
 		log.Printf("(Try %d of %d) error received from %s %v: %v", attemptNum, s.maxRetries, req.Method, req.URL, err)
 
 		if attemptNum == s.maxRetries {
-			break
+			return nil, fmt.Errorf("getting error from %s after %d retries: %v", req.URL, s.maxRetries, err)
 		}
 		time.Sleep(s.backOff(attemptNum))
 	}
-	return nil, fmt.Errorf("getting from %s after %d retries", req.URL, s.maxRetries)
 }

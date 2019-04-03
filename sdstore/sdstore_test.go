@@ -670,13 +670,13 @@ func TestCheckForRetry(t *testing.T) {
 		{statusCode: http.StatusAccepted, doesRetry: false},
 		{statusCode: http.StatusNoContent, doesRetry: false},
 		// status 400~
-		{statusCode: http.StatusBadRequest, doesRetry: true},
-		{statusCode: http.StatusUnauthorized, doesRetry: true},
-		{statusCode: http.StatusForbidden, doesRetry: true},
+		{statusCode: http.StatusBadRequest, doesRetry: true, retryErr: fmt.Errorf("got code 400.")},
+		{statusCode: http.StatusUnauthorized, doesRetry: true, retryErr: fmt.Errorf("got code 401.")},
+		{statusCode: http.StatusForbidden, doesRetry: true, retryErr: fmt.Errorf("got code 403.")},
 		{statusCode: http.StatusNotFound, doesRetry: false, retryErr: fmt.Errorf("got code 404. stop retrying")},
-		{statusCode: http.StatusRequestTimeout, doesRetry: true},
+		{statusCode: http.StatusRequestTimeout, doesRetry: true, retryErr: fmt.Errorf("got code 408.")},
 		// status 500~
-		{err: nil, statusCode: http.StatusInternalServerError, doesRetry: true},
+		{err: nil, statusCode: http.StatusInternalServerError, doesRetry: true, retryErr: fmt.Errorf("got code 500.")},
 	}
 
 	for _, c := range cases {
@@ -701,7 +701,7 @@ func TestDo(t *testing.T) {
 		err         error
 		responseNil bool
 	}{
-		{statusCode: 500, body: "ERROR", callCount: 4, err: fmt.Errorf("getting from http://fakestore.example.com/v1/test after 4 retries"), responseNil: true},
+		{statusCode: 500, body: "ERROR", callCount: 4, err: fmt.Errorf("getting error from http://fakestore.example.com/v1/test after 4 retries: got 500 Internal Server Error."), responseNil: true},
 		{statusCode: 200, body: "test-contents", callCount: 1},
 		{statusCode: 404, body: "Not Found", callCount: 1, err: fmt.Errorf("got 404 Not Found from http://fakestore.example.com/v1/test. stop retrying")},
 	}
