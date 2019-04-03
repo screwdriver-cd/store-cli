@@ -1,6 +1,6 @@
 # store-cli
 
-CLI for communicating with the Screwdriver store.
+CLI for communicating with the Screwdriver store.!
 
 ```
 $ go run store-cli.go 
