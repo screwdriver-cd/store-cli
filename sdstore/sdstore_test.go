@@ -345,7 +345,6 @@ func TestUploadZipRetry(t *testing.T) {
 	callCount := int32(0)
 	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
 		atomic.AddInt32(&callCount, 1)
-		os.Remove("emitterdata_md5.json")
 	})
 	uploader.client = http
 	err := uploader.Upload(u, testFile().Name(), true)
@@ -355,6 +354,7 @@ func TestUploadZipRetry(t *testing.T) {
 	if atomic.LoadInt32(&callCount) != 6 {
 		t.Errorf("Expected 6 retries, got %d", callCount)
 	}
+	os.Remove("emitterdata_md5.json")
 }
 
 func TestDownload(t *testing.T) {
@@ -670,9 +670,9 @@ func TestCheckForRetry(t *testing.T) {
 		{statusCode: http.StatusAccepted, doesRetry: false},
 		{statusCode: http.StatusNoContent, doesRetry: false},
 		// status 400~
-		{statusCode: http.StatusBadRequest, doesRetry: true, retryErr: fmt.Errorf("got code 400.")},
-		{statusCode: http.StatusUnauthorized, doesRetry: true, retryErr: fmt.Errorf("got code 401.")},
-		{statusCode: http.StatusForbidden, doesRetry: true, retryErr: fmt.Errorf("got code 403.")},
+		{statusCode: http.StatusBadRequest, doesRetry: false, retryErr: fmt.Errorf("got code 400. stop retrying")},
+		{statusCode: http.StatusUnauthorized, doesRetry: false, retryErr: fmt.Errorf("got code 401. stop retrying")},
+		{statusCode: http.StatusForbidden, doesRetry: false, retryErr: fmt.Errorf("got code 403. stop retrying")},
 		{statusCode: http.StatusNotFound, doesRetry: false, retryErr: fmt.Errorf("got code 404. stop retrying")},
 		{statusCode: http.StatusRequestTimeout, doesRetry: true, retryErr: fmt.Errorf("got code 408.")},
 		// status 500~
