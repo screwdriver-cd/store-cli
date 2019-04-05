@@ -12,6 +12,7 @@ jobs:
             - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
             - test: go test ./...
             - build: go build -a -o store-cli
+            - test-release: "curl -sL https://git.io/goreleaser | bash -s -- --snapshot"
 
     deploy:
         requires: main

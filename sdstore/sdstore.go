@@ -338,7 +338,7 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error 
 		retry, err := s.checkForRetry(res, err)
 
 		if !retry {
-			if (err != nil) {
+			if err != nil {
 				return err
 			}
 
