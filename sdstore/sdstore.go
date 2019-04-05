@@ -226,6 +226,7 @@ func handleResponse(res *http.Response) ([]byte, error) {
 	if res.StatusCode/100 != 2 {
 		return nil, fmt.Errorf("HTTP %d returned: %s", res.StatusCode, body)
 	}
+
 	return body, nil
 }
 
@@ -312,29 +313,48 @@ func (s *sdStore) get(url *url.URL, toExtract bool) ([]byte, error) {
 }
 
 // putFile writes a file at filePath to a url with a PUT request. It streams the data from disk to save memory
+// Need to retry here so that we can re-open the file cuz httpClient closes the file after each request
 func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error {
-	input, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer input.Close()
+	attemptNum := 0
 
-	stat, err := input.Stat()
-	if err != nil {
-		return err
-	}
-	fsize := stat.Size()
+	for {
+		attemptNum = attemptNum + 1
 
-	_, err = s.put(url, bodyType, input, fsize)
-	if err != nil {
-		return err
-	}
+		input, err := os.Open(filePath)
+		if err != nil {
+			return err
+		}
+		defer input.Close()
 
-	return nil
+		stat, err := input.Stat()
+		if err != nil {
+			return err
+		}
+		fsize := stat.Size()
+
+		res, err := s.put(url, bodyType, input, fsize)
+		defer res.Body.Close()
+
+		retry, err := s.checkForRetry(res, err)
+
+		if !retry {
+			if (err != nil) {
+				return err
+			}
+
+			return nil
+		}
+		log.Printf("(Try %d of %d) error received from %s %v: %v", attemptNum, s.maxRetries, "PUT", url, err)
+
+		if attemptNum == s.maxRetries {
+			return err
+		}
+		time.Sleep(s.backOff(attemptNum))
+	}
 }
 
 // PUT request to SD store
-func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int64) ([]byte, error) {
+func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int64) (*http.Response, error) {
 	req, err := http.NewRequest("PUT", url.String(), payload)
 	if err != nil {
 		return nil, err
@@ -344,13 +364,9 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 	req.Header.Set("Content-Type", bodyType)
 	req.ContentLength = size
 
-	res, err := s.do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
+	res, err := s.client.Do(req)
 
-	return handleResponse(res)
+	return res, err
 }
 
 func (s *sdStore) backOff(attemptNum int) time.Duration {
@@ -362,7 +378,7 @@ func (s *sdStore) checkForRetry(res *http.Response, err error) (bool, error) {
 		log.Printf("failed to request to store: %v", err)
 		return true, err
 	}
-	if res.StatusCode == http.StatusNotFound {
+	if res.StatusCode/100 == 4 && res.StatusCode != http.StatusRequestTimeout && res.StatusCode != http.StatusTooManyRequests {
 		if res.Request != nil && res.Request.URL != nil {
 			return false, fmt.Errorf("got %s from %s. stop retrying", res.Status, res.Request.URL)
 		}
@@ -370,7 +386,7 @@ func (s *sdStore) checkForRetry(res *http.Response, err error) (bool, error) {
 	}
 
 	if res.StatusCode/100 != 2 {
-		return true, nil
+		return true, fmt.Errorf("got %s.", res.Status)
 	}
 
 	return false, nil
@@ -380,7 +396,9 @@ func (s *sdStore) do(req *http.Request) (*http.Response, error) {
 	attemptNum := 0
 	for {
 		attemptNum = attemptNum + 1
+
 		res, err := s.client.Do(req)
+
 		retry, err := s.checkForRetry(res, err)
 		if !retry {
 			return res, err
@@ -388,9 +406,8 @@ func (s *sdStore) do(req *http.Request) (*http.Response, error) {
 		log.Printf("(Try %d of %d) error received from %s %v: %v", attemptNum, s.maxRetries, req.Method, req.URL, err)
 
 		if attemptNum == s.maxRetries {
-			break
+			return nil, fmt.Errorf("getting error from %s after %d retries: %v", req.URL, s.maxRetries, err)
 		}
 		time.Sleep(s.backOff(attemptNum))
 	}
-	return nil, fmt.Errorf("getting from %s after %d retries", req.URL, s.maxRetries)
 }
