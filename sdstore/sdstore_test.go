@@ -398,7 +398,7 @@ func TestDownloadZip(t *testing.T) {
 	token := "faketoken"
 	abspath, _ := filepath.Abs("./")
 	testfilepath := abspath + "/../data/test.zip"
-	testfilepath = url.QueryEscape(testfilepath)
+	testfilepath = url.PathEscape(testfilepath)
 
 	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/1234/" + testfilepath)
 	downloader := &sdStore{
@@ -674,9 +674,9 @@ func TestCheckForRetry(t *testing.T) {
 		{statusCode: http.StatusUnauthorized, doesRetry: false, retryErr: fmt.Errorf("got code 401. stop retrying")},
 		{statusCode: http.StatusForbidden, doesRetry: false, retryErr: fmt.Errorf("got code 403. stop retrying")},
 		{statusCode: http.StatusNotFound, doesRetry: false, retryErr: fmt.Errorf("got code 404. stop retrying")},
-		{statusCode: http.StatusRequestTimeout, doesRetry: true, retryErr: fmt.Errorf("got code 408.")},
+		{statusCode: http.StatusRequestTimeout, doesRetry: true, retryErr: fmt.Errorf("got code 408")},
 		// status 500~
-		{err: nil, statusCode: http.StatusInternalServerError, doesRetry: true, retryErr: fmt.Errorf("got code 500.")},
+		{err: nil, statusCode: http.StatusInternalServerError, doesRetry: true, retryErr: fmt.Errorf("got code 500")},
 	}
 
 	for _, c := range cases {
@@ -701,7 +701,7 @@ func TestDo(t *testing.T) {
 		err         error
 		responseNil bool
 	}{
-		{statusCode: 500, body: "ERROR", callCount: 4, err: fmt.Errorf("getting error from http://fakestore.example.com/v1/test after 4 retries: got 500 Internal Server Error."), responseNil: true},
+		{statusCode: 500, body: "ERROR", callCount: 4, err: fmt.Errorf("getting error from http://fakestore.example.com/v1/test after 4 retries: got 500 Internal Server Error"), responseNil: true},
 		{statusCode: 200, body: "test-contents", callCount: 1},
 		{statusCode: 404, body: "Not Found", callCount: 1, err: fmt.Errorf("got 404 Not Found from http://fakestore.example.com/v1/test. stop retrying")},
 	}

@@ -37,7 +37,7 @@ var compressedFormats = map[string]struct{}{
 	".zipx": {},
 }
 
-// Repurposed from https://github.com/mholt/archiver/pull/92/files
+// Zip is repurposed from https://github.com/mholt/archiver/pull/92/files
 // To include support for symbolic links
 func Zip(source, target string) error {
 	zipfile, err := os.Create(target)
@@ -127,7 +127,7 @@ func Zip(source, target string) error {
 	})
 }
 
-// Repurposed from https://github.com/mholt/archiver/pull/92/files
+// Unzip is repurposed from https://github.com/mholt/archiver/pull/92/files
 // To include support for symbolic links
 func Unzip(src string, dest string) ([]string, error) {
 	var filenames []string

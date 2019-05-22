@@ -86,11 +86,11 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 		}
 
 		key = strings.TrimRight(key, "/")
-		encoded := url.QueryEscape(key)
+		encoded := url.PathEscape(key)
 		path = "caches/" + scope + "s/" + scopeEnv + "/" + encoded
 	case "artifact":
 		key = strings.TrimPrefix(key, "./")
-		encoded := url.QueryEscape(key)
+		encoded := url.PathEscape(key)
 		path = "builds/" + os.Getenv("SD_BUILD_ID") + "/ARTIFACTS/" + encoded
 	case "log":
 		path = "builds/" + os.Getenv("SD_BUILD_ID") + "-" + key
