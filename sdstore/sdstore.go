@@ -386,7 +386,7 @@ func (s *sdStore) checkForRetry(res *http.Response, err error) (bool, error) {
 	}
 
 	if res.StatusCode/100 != 2 {
-		return true, fmt.Errorf("got %s.", res.Status)
+		return true, fmt.Errorf("got %s", res.Status)
 	}
 
 	return false, nil
