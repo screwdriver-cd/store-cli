@@ -398,7 +398,7 @@ func TestDownloadZip(t *testing.T) {
 	token := "faketoken"
 	abspath, _ := filepath.Abs("./")
 	testfilepath := abspath + "/../data/test.zip"
-	testfilepath = url.QueryEscape(testfilepath)
+	testfilepath = url.PathEscape(testfilepath)
 
 	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/1234/" + testfilepath)
 	downloader := &sdStore{

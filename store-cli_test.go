@@ -53,7 +53,7 @@ func TestMakeURL(t *testing.T) {
 	os.Setenv("SD_EVENT_ID", "499")
 	os.Setenv("SD_PIPELINE_ID", "100")
 	abspath, _ := filepath.Abs("./")
-	abspath = url.QueryEscape(abspath)
+	abspath = url.PathEscape(abspath)
 
 	// Success test cases
 	testCases := []struct {
