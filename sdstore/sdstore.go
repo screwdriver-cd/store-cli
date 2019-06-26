@@ -85,12 +85,63 @@ func (s *sdStore) Remove(u *url.URL) error {
 }
 
 // Download a file from a path within the SD Store
+// Note: it's possible that this won't actually download a file and still return error == nil
 func (s *sdStore) Download(url *url.URL, toExtract bool) error {
-	err := s.get(url, toExtract)
+	urlString := url.String()
+	if toExtract {
+		urlString += ".zip"
+	}
+
+	res, err := s.get(urlString)
 	if err != nil {
 		return err
 	}
-	log.Printf("Download from %s successful.", url.String())
+
+	defer res.Body.Close()
+
+	// Read file
+	filePath := getFilePath(url)
+	log.Printf("filePath = %s", filePath)
+	if filePath != "" {
+		dir, _ := filepath.Split(filePath)
+		err = os.MkdirAll(dir, 0777)
+		if err != nil {
+			return err
+		}
+
+		if toExtract {
+			filePath += ".zip"
+		}
+		file, err := os.Create(filePath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		_, err = io.Copy(file, res.Body)
+		if err != nil {
+			return err
+		}
+
+		// ensure file is flushed
+		err = file.Sync()
+		if err != nil {
+			return err
+		}
+
+		if toExtract {
+			_, err = Unzip(filePath, dir)
+			if err != nil {
+				log.Printf("Could not unzip file %s: %s", filePath, err)
+			} else {
+				os.Remove(filePath)
+			}
+		}
+
+		log.Printf("Download from %s to %s successful.", url.String(), filePath)
+	} else {
+		log.Printf("Request for %s successful, but not written to file.", url.String())
+	}
 
 	return nil
 }
@@ -216,111 +267,56 @@ func tokenHeader(token string) string {
 	return fmt.Sprintf("Bearer %s", token)
 }
 
-// handleResponse attempts to parse error objects from Screwdriver
-func handleResponse(res *http.Response, dest io.Writer) error {
-	// if got a failed status, we expect to get a small error message; read it fully
+// Check the response for HTTP error.
+func checkError(res *http.Response) error {
 	if res.StatusCode/100 != 2 {
+		defer res.Body.Close()
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			return fmt.Errorf("HTTP %d and failed to read body: %v", res.StatusCode, err)
-
 		}
 		return fmt.Errorf("HTTP %d returned: %s", res.StatusCode, body)
 	}
 
-	// We may not care about consuming the output.
-	if dest == nil {
-		return nil
-	}
-
-	// Otherwise, we want to stream the result to the dest writer.
-	_, err := io.Copy(dest, res.Body)
-	if err != nil {
-		return fmt.Errorf("streaming response body to buffer or file: %v", err)
-	}
-
-	// No error; result has been streamed into writer
+	// 2xx is success
 	return nil
 }
 
 // DELETE request
 func (s *sdStore) remove(url *url.URL) error {
-	req, err := http.NewRequest("DELETE", url.String(), nil)
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Authorization", tokenHeader(s.token))
-	res, err := s.do(req)
+	res, err := s.retryingRequest(url.String(), "DELETE")
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
-
-	return handleResponse(res, nil)
+	return nil
 }
 
-// GET request from SD Store
-func (s *sdStore) get(url *url.URL, toExtract bool) error {
-	filePath := getFilePath(url)
-	var err error
-	var dir string
-	var urlString string
+// GET request; caller should close response.Body
+func (s *sdStore) get(url string) (*http.Response, error) {
+	return s.retryingRequest(url, "GET")
+}
 
-	if toExtract == true {
-		urlString = fmt.Sprintf("%s%s", url.String(), ".zip")
-	} else {
-		urlString = url.String()
-	}
-
-	req, err := http.NewRequest("GET", urlString, nil)
+// Common between GET and DELETE
+func (s *sdStore) retryingRequest(url string, method string) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
 	res, err := s.do(req)
 	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	if filePath != "" {
-		dir, _ = filepath.Split(filePath)
-		err := os.MkdirAll(dir, 0777)
-
-		if toExtract == true {
-			filePath += ".zip"
-		}
-		file, err := os.Create(filePath)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		err = handleResponse(res, file)
-		if err != nil {
-			return err
-		}
-
-		// Make sure file content is fully flushed to disk in case we're going to
-		// unzip it
-		err = file.Sync()
-		if err != nil {
-			return err
-		}
-
-		if toExtract {
-			_, err = Unzip(filePath, dir)
-			if err != nil {
-				log.Printf("Could not unzip file %s: %s", filePath, err)
-			} else {
-				os.Remove(filePath)
-			}
-		}
+		return nil, err
 	}
 
-	return nil
+	// Check for error
+	err = checkError(res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 // putFile writes a file at filePath to a url with a PUT request. It streams the data from disk to save memory
@@ -404,6 +400,7 @@ func (s *sdStore) checkForRetry(res *http.Response, err error) (bool, error) {
 }
 
 func (s *sdStore) do(req *http.Request) (*http.Response, error) {
+
 	attemptNum := 0
 	for {
 		attemptNum = attemptNum + 1
