@@ -128,7 +128,7 @@ func get(storeType, scope, key string) error {
 		toExtract = false
 	}
 
-	_, err = store.Download(fullURL, toExtract)
+	err = store.Download(fullURL, toExtract)
 
 	return err
 }

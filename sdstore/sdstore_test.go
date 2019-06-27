@@ -357,43 +357,6 @@ func TestUploadZipRetry(t *testing.T) {
 	os.Remove("emitterdata_md5.json")
 }
 
-func TestDownload(t *testing.T) {
-	token := "faketoken"
-	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
-	downloader := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: 1.0,
-		maxRetries:  3.0,
-	}
-	called := false
-
-	want := "test-content"
-
-	http := makeFakeHTTPClient(t, 200, want, func(r *http.Request) {
-		if r.URL.Path != u.Path {
-			t.Errorf("Wrong URL path: %s", r.URL.Path)
-		}
-
-		called = true
-
-		if r.Method != "GET" {
-			t.Errorf("Called with method %s, want GET", r.Method)
-		}
-	})
-
-	downloader.client = http
-	res, _ := downloader.Download(u, false)
-
-	if string(res) != want {
-		t.Errorf("Response is %s, want %s", string(res), want)
-	}
-
-	if !called {
-		t.Fatalf("The HTTP client was never used.")
-	}
-}
-
 func TestDownloadZip(t *testing.T) {
 	token := "faketoken"
 	abspath, _ := filepath.Abs("./")
@@ -422,7 +385,7 @@ func TestDownloadZip(t *testing.T) {
 	})
 
 	downloader.client = http
-	_, _ = downloader.Download(u, true)
+	_ = downloader.Download(u, true)
 
 	want, _ := ioutil.ReadFile("../data/emitterdata")
 	got, _ := ioutil.ReadFile(abspath + "/../data/tmp/test/emitterdata")
@@ -457,12 +420,12 @@ func TestDownloadRetry(t *testing.T) {
 		callCount++
 	})
 	downloader.client = http
-	_, err := downloader.Download(u, false)
+	err := downloader.Download(u, false)
 	if err == nil {
 		t.Error("Expected error from downloader.Download(), got nil")
 	}
 	if callCount != 3 {
-		t.Errorf("Expected 6 retries, got %d", callCount)
+		t.Errorf("Expected 3 retries, got %d", callCount)
 	}
 }
 
@@ -489,11 +452,7 @@ func TestDownloadWriteBack(t *testing.T) {
 	})
 
 	downloader.client = http
-	res, _ := downloader.Download(u, false)
-
-	if string(res) != want {
-		t.Errorf("Response is %s, want %s", string(res), want)
-	}
+	_ = downloader.Download(u, false)
 
 	filecontent, err := ioutil.ReadFile(testfilepath)
 	if err != nil {
@@ -533,11 +492,7 @@ func TestDownloadWriteBackSpecialFile(t *testing.T) {
 	})
 
 	downloader.client = http
-	res, _ := downloader.Download(u, false)
-
-	if string(res) != want {
-		t.Errorf("Response is %s, want %s", string(res), want)
-	}
+	_ = downloader.Download(u, false)
 
 	fileInfo, err := os.Stat(testfolder + testfilename)
 	filecontent, err := ioutil.ReadFile(testfolder + fileInfo.Name())
@@ -605,7 +560,7 @@ func TestRemoveRetry(t *testing.T) {
 		t.Errorf("Expected error from removeRes.Remove(), got nil")
 	}
 	if callCount != 3 {
-		t.Errorf("Expected 6 retries, got %d", callCount)
+		t.Errorf("Expected 3 retries, got %d", callCount)
 	}
 }
 
