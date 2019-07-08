@@ -195,10 +195,10 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 	if !toCompress {
 		err := s.putFile(u, "text/plain", filePath)
 		if err != nil {
-			log.Printf("failed to upload files %v", filePath)
+			log.Printf("failed to upload files %v to store (upload size = %s)", filePath, fileSize(filePath))
 			return err
 		}
-		log.Printf("Upload to %s successful.", u.String())
+		log.Printf("Upload to %s successful (upload size = %s).", u.String(), fileSize(filePath))
 		return nil
 	}
 
@@ -254,12 +254,26 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 	}
 	err = s.putFile(encodedURL, "text/plain", zipPath)
 	if err != nil {
-		log.Printf("failed to upload file")
+		log.Printf("failed to upload file %s to store (upload size = %s)", zipPath, fileSize(zipPath))
 		return err
 	}
-	log.Printf("Upload to %s successful.", u.String())
+	log.Printf("Upload to %s successful (upload size = %s).", u.String(), fileSize(zipPath))
 
 	return nil
+}
+
+// return file size suitible for logging (ignores errors)
+func fileSize(path string) string {
+	file, err := os.Open(path)
+	if err != nil {
+		return "n/a"
+	}
+	fi, err := file.Stat()
+	if err != nil {
+		return "n/a"
+	}
+
+	return fmt.Sprintf("%d", fi.Size())
 }
 
 // token header for request
