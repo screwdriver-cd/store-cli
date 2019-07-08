@@ -254,7 +254,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 	}
 	err = s.putFile(encodedURL, "text/plain", zipPath)
 	if err != nil {
-		log.Printf("failed to upload file %s to store upload size = %s)", zipPath, fileSize(zipPath))
+		log.Printf("failed to upload file %s to store (upload size = %s)", zipPath, fileSize(zipPath))
 		return err
 	}
 	log.Printf("Upload to %s successful (upload size = %s).", u.String(), fileSize(zipPath))
