@@ -198,7 +198,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 			log.Printf("failed to upload files %v to store (upload size = %s)", filePath, fileSize(filePath))
 			return err
 		}
-		log.Printf("Upload to %s successful (upload sze = %s).", u.String(), fileSize(filePath))
+		log.Printf("Upload to %s successful (upload size = %s).", u.String(), fileSize(filePath))
 		return nil
 	}
 
