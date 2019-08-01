@@ -29,8 +29,6 @@ func TestSkipCache(t *testing.T) {
 		{"cache", "pipeline", "set", "123", true},
 		{"cache", "pipeline", "remove", "123", true},
 		{"cache", "event", "get", "", false},
-		{"cache", "event", "get", "123", true},
-		{"cache", "event", "set", "123", true},
 		{"cache", "job", "get", "", false},
 		{"cache", "job", "set", "123", true},
 		{"artifact", "event", "get", "", false},
