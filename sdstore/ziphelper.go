@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -140,6 +141,13 @@ func Unzip(src string, dest string) ([]string, error) {
 	}
 	defer r.Close()
 
+	type fileTime struct {
+		path    string
+		modtime time.Time
+	}
+
+	var fileTimes []fileTime
+
 	for _, f := range r.File {
 
 		rc, err := f.Open()
@@ -163,9 +171,7 @@ func Unzip(src string, dest string) ([]string, error) {
 			// Make Folder
 			os.MkdirAll(fpath, os.ModePerm)
 
-			if err = os.Chtimes(fpath, time.Now(), f.Modified); err != nil {
-				log.Print("failed to update directory timestamps:", err)
-			}
+			fileTimes = append(fileTimes, fileTime{fpath, f.Modified})
 		} else if (f.FileInfo().Mode() & os.ModeSymlink) != 0 {
 			buffer := make([]byte, f.FileInfo().Size())
 			size, err := rc.Read(buffer)
@@ -200,10 +206,21 @@ func Unzip(src string, dest string) ([]string, error) {
 				return filenames, err
 			}
 
-			if err = os.Chtimes(fpath, time.Now(), f.Modified); err != nil {
-				log.Print("failed to update file timestamps:", err)
-			}
+			fileTimes = append(fileTimes, fileTime{fpath, f.Modified})
 		}
 	}
+
+	// sort longest first
+	sort.Slice(fileTimes, func(i, j int) bool {
+		return len(fileTimes[i].path) > len(fileTimes[j].path)
+	})
+	log.Print(fileTimes)
+
+	for _, ft := range fileTimes {
+		if err := os.Chtimes(ft.path, time.Now(), ft.modtime); err != nil {
+			log.Print("failed to update file timestamps:", err)
+		}
+	}
+
 	return filenames, nil
 }
