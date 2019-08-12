@@ -4,10 +4,12 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var compressedFormats = map[string]struct{}{
@@ -160,6 +162,10 @@ func Unzip(src string, dest string) ([]string, error) {
 
 			// Make Folder
 			os.MkdirAll(fpath, os.ModePerm)
+
+			if err = os.Chtimes(fpath, time.Now(), f.Modified); err != nil {
+				log.Print("failed to update directory timestamps:", err)
+			}
 		} else if (f.FileInfo().Mode() & os.ModeSymlink) != 0 {
 			buffer := make([]byte, f.FileInfo().Size())
 			size, err := rc.Read(buffer)
@@ -194,6 +200,9 @@ func Unzip(src string, dest string) ([]string, error) {
 				return filenames, err
 			}
 
+			if err = os.Chtimes(fpath, time.Now(), f.Modified); err != nil {
+				log.Print("failed to update file timestamps:", err)
+			}
 		}
 	}
 	return filenames, nil

@@ -120,6 +120,25 @@ func testZipFile() *os.File {
 	return f
 }
 
+func checkModTime(t *testing.T, path string, expectedTime string) {
+	const format = "2006-01-02 15:04:05 -0700"
+	expected, err := time.Parse(format, expectedTime)
+	if err != nil {
+		panic(err)
+	}
+
+	fi, err := os.Stat(path)
+	if err != nil {
+		panic(err)
+	}
+
+	got := fi.ModTime()
+
+	if !got.Equal(expected) {
+		t.Errorf("invalid modtime for %s: got %v, expected %v", path, got, expected)
+	}
+}
+
 func TestUpload(t *testing.T) {
 	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.example.com/builds/emitterdata")
@@ -399,6 +418,9 @@ func TestDownloadZip(t *testing.T) {
 	if string(got) != string(want) {
 		t.Errorf("Response is %s, want %s", got, want)
 	}
+
+	checkModTime(t, abspath+"/../data/tmp/test/", "2018-10-04 20:38:48.000000000 +0000")
+	checkModTime(t, abspath+"/../data/tmp/test/emitterdata", "2018-10-04 20:38:48.000000000 +0000")
 
 	if !called {
 		t.Fatalf("The HTTP client was never used.")
