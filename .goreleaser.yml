@@ -5,7 +5,9 @@ builds:
       - darwin
     goarch:
       - amd64
-
+    ldflags:
+      - -s -w
+        -X github.com/screwdriver-cd/store-cli/main.VERSION={{.Version}}
 archive:
   format: binary
   name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
