@@ -199,11 +199,12 @@ func main() {
 	defer finalRecover()
 
 	app := cli.NewApp()
-	app.Name = "store"
+	app.Name = "store-cli"
 	app.Usage = "CLI to communicate with Screwdriver Store"
 	app.UsageText = "[options]"
 	app.Copyright = "(c) 2018 Yahoo Inc."
 	app.Usage = "get, set or remove items in the Screwdriver store"
+	app.Version = VERSION
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
