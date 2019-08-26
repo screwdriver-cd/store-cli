@@ -1,13 +1,12 @@
 shared:
     image: golang
     environment:
-        GOPATH: /sd/workspace
+        GO111MODULE: on
 
 jobs:
     main:
         requires: [~commit, ~pr]
         steps:
-            - get: go get -t ./...
             - vet: go vet ./...
             - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
             - test: go test ./...
@@ -18,7 +17,6 @@ jobs:
         requires: main
         steps:
             - setup-ci: git clone https://github.com/screwdriver-cd/toolbox.git ci
-            - get: go get -t ./...
             - gofmt: "find . -name '*.go' | xargs gofmt -s -w"
             - tag: ./ci/git-tag.sh
             - release: |
