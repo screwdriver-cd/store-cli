@@ -9,13 +9,12 @@ import (
 	"io/ioutil"
 )
 
-/**
-* Copy file from source to destination
-* @method copyFile
-* @param   {os.FileInfo}	fi	file descriptors / info
-* @param   {String}    		src     source file
-* @param   {String}    		dest    destination file
-* @return  {nil / error}		success - return nil; error - return error description
+/*
+Copy file from source to destination
+param - fi	        file descriptors / info
+param - src             source file
+param - dest            destination file
+return - nil / error    success - return nil; error - return error description
 */
 func copyFile(fi os.FileInfo, src, dest string) error {
 	var err error
@@ -38,12 +37,11 @@ func copyFile(fi os.FileInfo, src, dest string) error {
 	return nil
 }
 
-/**
-* Copy directory from source to destination. Create directories in destination if not available
-* @method copyDir
-* @param   {String}    		src     source directory
-* @param   {String}    		dest    destination directory
-* @return  {nil / error}		success - return nil; error - return error description
+/*
+Copy directory from source to destination. Create directories in destination if not available
+param - src             source directory
+param - dest            destination directory
+return  - nil / error   success - return nil; error - return error description
 */
 func copyDir(src string, dest string) error {
 	var err error
@@ -79,37 +77,40 @@ func copyDir(src string, dest string) error {
 	return nil
 }
 
-/**
-* cache directories and files
-* @method Cache2Disk
-* @param   {String}    		command     		set, get or remove
-* @param   {String}    		cacheScope     		pipeline, event, job
-* @param   {String}    		srcPath     		source directory
-* @return  {nil / error}				success - return nil; error - return error description
+/*
+cache directories and files
+param - command         set, get or remove
+param - cacheScope     	pipeline, event, job
+param -	srcPath     	source directory
+return - nil / error   success - return nil; error - return error description
 */
 func Cache2Disk(command, cacheScope, srcPath string) error {
 	var err error
 	var fi os.FileInfo
 
 	homeDir, _ := os.UserHomeDir()
-	persistentCacheDir := ""
+	cacheDir := ""
 	command = strings.ToLower(command)
+
+	if command != "set" && command != "get" && command !="remove" {
+		return fmt.Errorf("Error: %v, command: %v is not expected", err, command)
+	}
 
 	switch strings.ToLower(cacheScope) {
 	case "pipeline":
-		persistentCacheDir = os.Getenv("SD_PIPELINE_CACHE_DIR")
+		cacheDir = os.Getenv("SD_PIPELINE_CACHE_DIR")
 	case "event":
-		persistentCacheDir = os.Getenv("SD_EVENT_CACHE_DIR")
+		cacheDir = os.Getenv("SD_EVENT_CACHE_DIR")
 	case "job":
-		persistentCacheDir = os.Getenv("SD_JOB_CACHE_DIR")
+		cacheDir = os.Getenv("SD_JOB_CACHE_DIR")
 	}
 
-	if persistentCacheDir == "" {
-		return fmt.Errorf("Error: %v, persistent cache directory empty for cache scope %v ", err, cacheScope)
+	if cacheDir == "" {
+		return fmt.Errorf("Error: %v, cache directory empty for cache scope %v ", err, cacheScope)
 	}
 
-	if strings.HasPrefix(persistentCacheDir, "~/") {
-		persistentCacheDir = filepath.Join(homeDir, strings.TrimPrefix(persistentCacheDir, "~/"))
+	if strings.HasPrefix(cacheDir, "~/") {
+		cacheDir = filepath.Join(homeDir, strings.TrimPrefix(cacheDir, "~/"))
 	}
 
 	if strings.HasPrefix(srcPath, "~/") {
@@ -120,11 +121,11 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 		return fmt.Errorf("Error: %v in path %v, command: %v", err, srcPath, command)
 	}
 
-	if persistentCacheDir, err = filepath.Abs(persistentCacheDir); err != nil {
-		return fmt.Errorf("Error: %v in path %v, command: %v", err, persistentCacheDir, command)
+	if cacheDir, err = filepath.Abs(cacheDir); err != nil {
+		return fmt.Errorf("Error: %v in path %v, command: %v", err, cacheDir, command)
 	}
 
-	cachePath := filepath.Join(persistentCacheDir, srcPath)
+	cachePath := filepath.Join(cacheDir, srcPath)
 	src := srcPath
 	dest := cachePath
 
