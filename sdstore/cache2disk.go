@@ -5,80 +5,11 @@ import (
 	"path/filepath"
 	"os"
 	"strings"
-	"io"
-	"io/ioutil"
+	"github.com/otiai10/copy"
 )
 
 /*
-Copy file from source to destination
-param - fi	        file descriptors / info
-param - src             source file
-param - dest            destination file
-return - nil / error    success - return nil; error - return error description
-*/
-func copyFile(fi os.FileInfo, src, dest string) error {
-	var err error
-	var srcFile *os.File
-	var destFile *os.File
-
-	if srcFile, err = os.Open(src); err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	if destFile, err = os.Create(dest); err != nil {
-		return err
-	}
-	defer destFile.Close()
-
-	if _, err = io.Copy(destFile, srcFile); err != nil {
-		return err
-	}
-	return nil
-}
-
-/*
-Copy directory from source to destination. Create directories in destination if not available
-param - src             source directory
-param - dest            destination directory
-return  - nil / error   success - return nil; error - return error description
-*/
-func copyDir(src string, dest string) error {
-	var err error
-	var di []os.FileInfo
-	var fi os.FileInfo
-
-	if fi, err = os.Stat(src); err != nil {
-		return err
-	}
-
-	if err = os.MkdirAll(dest, fi.Mode()); err != nil {
-		return err
-	}
-
-	if di, err = ioutil.ReadDir(src); err != nil {
-		return err
-	}
-
-	for _, fd := range di {
-		srcPath := filepath.Join(src, fd.Name())
-		destPath := filepath.Join(dest, fd.Name())
-
-		if fd.IsDir() {
-			if err = copyDir(srcPath, destPath); err != nil {
-				return err
-			}
-		} else {
-			if err = copyFile(fi, srcPath, destPath); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-/*
-cache directories and files
+cache directories and files to/from shared storage
 param - command         set, get or remove
 param - cacheScope     	pipeline, event, job
 param -	srcPath     	source directory
@@ -86,7 +17,6 @@ return - nil / error   success - return nil; error - return error description
 */
 func Cache2Disk(command, cacheScope, srcPath string) error {
 	var err error
-	var fi os.FileInfo
 
 	homeDir, _ := os.UserHomeDir()
 	cacheDir := ""
@@ -106,7 +36,7 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 	}
 
 	if cacheDir == "" {
-		return fmt.Errorf("Error: %v, cache directory empty for cache scope %v ", err, cacheScope)
+		return fmt.Errorf("Error: %v, cache directory empty for cache scope %v", err, cacheScope)
 	}
 
 	if strings.HasPrefix(cacheDir, "~/") {
@@ -118,7 +48,7 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 	}
 
 	if srcPath, err = filepath.Abs(srcPath); err != nil {
-		return fmt.Errorf("Error: %v in path %v, command: %v", err, srcPath, command)
+		return fmt.Errorf("Error: %v in src path %v, command: %v", err, srcPath, command)
 	}
 
 	if cacheDir, err = filepath.Abs(cacheDir); err != nil {
@@ -134,33 +64,20 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 		dest = srcPath
 	}
 
-	if fi, err = os.Stat(src); err != nil {
-		return fmt.Errorf("Error: %v in path %v for command: %v", err, src, command)
-	}
-
 	if command != "get" {
 		if err = os.RemoveAll(dest); err != nil {
-			return fmt.Errorf("Error: %v, failed to clean out the destination directory: %v ", err, dest)
+			return fmt.Errorf("Error: %v, failed to clean out the destination directory: %v", err, dest)
 		}
-
 		if command == "remove" {
 			fmt.Printf("command: %v, cache directories %v removed \n", command, dest)
 			return nil
 		}
 	}
 
-	if fi.IsDir() {
-		if err = copyDir(src, dest); err != nil {
-			return err
-		} else {
-			if err = copyFile(fi, src, dest); err != nil {
-				return err
-			}
-		}
-	} else {
-		if err = copyFile(fi, src, dest); err != nil {
-			return err
-		}
+	fmt.Println(src)
+	fmt.Println(dest)
+	if err = copy.Copy(src, dest); err != nil {
+		return err
 	}
 
 	return nil
