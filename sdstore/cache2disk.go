@@ -17,7 +17,6 @@ import (
 * @param   {String}    		dest    destination file
 * @return  {nil / error}		success - return nil; error - return error description
 */
-
 func copyFile(fi os.FileInfo, src, dest string) error {
 	var err error
 	var srcFile *os.File
@@ -46,7 +45,6 @@ func copyFile(fi os.FileInfo, src, dest string) error {
 * @param   {String}    		dest    destination directory
 * @return  {nil / error}		success - return nil; error - return error description
 */
-
 func copyDir(src string, dest string) error {
 	var err error
 	var di []os.FileInfo
@@ -89,7 +87,6 @@ func copyDir(src string, dest string) error {
 * @param   {String}    		srcPath     		source directory
 * @return  {nil / error}				success - return nil; error - return error description
 */
-
 func Cache2Disk(command, cacheScope, srcPath string) error {
 	var err error
 	var fi os.FileInfo
