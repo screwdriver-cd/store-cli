@@ -23,17 +23,17 @@ func copyFile(fi os.FileInfo, src, dest string) error {
 	var destFile *os.File
 
 	if srcFile, err = os.Open(src); err != nil {
-	return err
+		return err
 	}
 	defer srcFile.Close()
 
 	if destFile, err = os.Create(dest); err != nil {
-	return err
+		return err
 	}
 	defer destFile.Close()
 
 	if _, err = io.Copy(destFile, srcFile); err != nil {
-	return err
+		return err
 	}
 	return nil
 }
