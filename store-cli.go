@@ -111,48 +111,58 @@ func get(storeType, scope, key string) error {
 		return nil
 	}
 
-	sdToken := os.Getenv("SD_TOKEN")
-	fullURL, err := makeURL(storeType, scope, key)
+	if storeType == "cache" && os.Getenv("CACHE_STRATEGY") == "disk" {
+		return sdstore.Cache2Disk("get", scope, key)
+	} else {
+		sdToken := os.Getenv("SD_TOKEN")
+		fullURL, err := makeURL(storeType, scope, key)
 
-	if err != nil {
+		if err != nil {
+			return err
+		}
+		store := sdstore.NewStore(sdToken)
+
+		var toExtract bool
+
+		if storeType == "cache" {
+			toExtract = true
+		} else {
+			toExtract = false
+		}
+
+		err = store.Download(fullURL, toExtract)
+
 		return err
 	}
-	store := sdstore.NewStore(sdToken)
-
-	var toExtract bool
-
-	if storeType == "cache" {
-		toExtract = true
-	} else {
-		toExtract = false
-	}
-
-	err = store.Download(fullURL, toExtract)
-
-	return err
 }
 
 func set(storeType, scope, filePath string) error {
 	if skipCache(storeType, scope, "set") {
 		return nil
 	}
-	sdToken := os.Getenv("SD_TOKEN")
-	fullURL, err := makeURL(storeType, scope, filePath)
 
-	if err != nil {
-		return err
-	}
-	store := sdstore.NewStore(sdToken)
-
-	var toCompress bool
-
-	if storeType == "cache" {
-		toCompress = true
+	if storeType == "cache" && os.Getenv("CACHE_STRATEGY") == "disk" {
+		return sdstore.Cache2Disk("set", scope, filePath)
 	} else {
-		toCompress = false
+		sdToken := os.Getenv("SD_TOKEN")
+		fullURL, err := makeURL(storeType, scope, filePath)
+
+		if err != nil {
+			return err
+		}
+		store := sdstore.NewStore(sdToken)
+
+		var toCompress bool
+
+		if storeType == "cache" {
+			toCompress = true
+		} else {
+			toCompress = false
+		}
+
+		return store.Upload(fullURL, filePath, toCompress)
 	}
 
-	return store.Upload(fullURL, filePath, toCompress)
 }
 
 func remove(storeType, scope, key string) error {
@@ -160,39 +170,43 @@ func remove(storeType, scope, key string) error {
 		return nil
 	}
 
-	sdToken := os.Getenv("SD_TOKEN")
-	store := sdstore.NewStore(sdToken)
+	if storeType == "cache" && os.Getenv("CACHE_STRATEGY") == "disk" {
+		return sdstore.Cache2Disk("remove", scope, key)
+	} else {
+		sdToken := os.Getenv("SD_TOKEN")
+		store := sdstore.NewStore(sdToken)
 
-	if storeType == "cache" {
-		md5URL, err := makeURL(storeType, scope, fmt.Sprintf("%s%s", filepath.Clean(key), "_md5.json"))
+		if storeType == "cache" {
+			md5URL, err := makeURL(storeType, scope, fmt.Sprintf("%s%s", filepath.Clean(key), "_md5.json"))
+			if err != nil {
+				return err
+			}
+
+			err = store.Remove(md5URL)
+			if err != nil {
+				return fmt.Errorf("Failed to remove file from %s: %s", md5URL.String(), err)
+			}
+
+			zipURL, err := makeURL(storeType, scope, fmt.Sprintf("%s%s", filepath.Clean(key), ".zip"))
+			if err != nil {
+				return err
+			}
+
+			err = store.Remove(zipURL)
+			if err != nil {
+				return fmt.Errorf("Failed to remove file from %s: %s", zipURL.String(), err)
+			}
+
+			return nil
+		}
+
+		fullURL, err := makeURL(storeType, scope, key)
+
 		if err != nil {
 			return err
 		}
-
-		err = store.Remove(md5URL)
-		if err != nil {
-			return fmt.Errorf("Failed to remove file from %s: %s", md5URL.String(), err)
-		}
-
-		zipURL, err := makeURL(storeType, scope, fmt.Sprintf("%s%s", filepath.Clean(key), ".zip"))
-		if err != nil {
-			return err
-		}
-
-		err = store.Remove(zipURL)
-		if err != nil {
-			return fmt.Errorf("Failed to remove file from %s: %s", zipURL.String(), err)
-		}
-
-		return nil
+		return store.Remove(fullURL)
 	}
-
-	fullURL, err := makeURL(storeType, scope, key)
-
-	if err != nil {
-		return err
-	}
-	return store.Remove(fullURL)
 }
 
 func main() {
