@@ -2,10 +2,10 @@ package sdstore
 
 import (
 	"fmt"
-	"path/filepath"
-	"os"
-	"strings"
 	"github.com/otiai10/copy"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 /*
@@ -23,7 +23,7 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 	command = strings.ToLower(command)
 
 	if command != "set" && command != "get" && command !="remove" {
-		return fmt.Errorf("Error: %v, command: %v is not expected", err, command)
+		return fmt.Errorf("error: %v, command: %v is not expected", err, command)
 	}
 
 	switch strings.ToLower(cacheScope) {
@@ -36,7 +36,7 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 	}
 
 	if cacheDir == "" {
-		return fmt.Errorf("Error: %v, cache directory empty for cache scope %v", err, cacheScope)
+		return fmt.Errorf("error: %v, cache directory empty for cache scope %v", err, cacheScope)
 	}
 
 	if strings.HasPrefix(cacheDir, "~/") {
@@ -48,15 +48,15 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 	}
 
 	if srcPath, err = filepath.Abs(srcPath); err != nil {
-		return fmt.Errorf("Error: %v in src path %v, command: %v", err, srcPath, command)
+		return fmt.Errorf("error: %v in src path %v, command: %v", err, srcPath, command)
 	}
 
 	if _, err = os.Stat(srcPath); err != nil {
-		return fmt.Errorf("Error: %v, source path not found", err)
+		return fmt.Errorf("error: %v, source path not found", err)
 	}
 
 	if cacheDir, err = filepath.Abs(cacheDir); err != nil {
-		return fmt.Errorf("Error: %v in path %v, command: %v", err, cacheDir, command)
+		return fmt.Errorf("error: %v in path %v, command: %v", err, cacheDir, command)
 	}
 
 	cachePath := filepath.Join(cacheDir, srcPath)
@@ -70,7 +70,7 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 
 	if command != "get" {
 		if err = os.RemoveAll(dest); err != nil {
-			return fmt.Errorf("Error: %v, failed to clean out the destination directory: %v", err, dest)
+			return fmt.Errorf("error: %v, failed to clean out the destination directory: %v", err, dest)
 		}
 		if command == "remove" {
 			fmt.Printf("command: %v, cache directories %v removed \n", command, dest)
