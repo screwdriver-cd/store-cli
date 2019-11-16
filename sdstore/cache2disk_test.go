@@ -23,13 +23,14 @@ func TestCache2DiskInvalidCommand(t *testing.T) {
 // test to validate invalid cache scope
 func TestCache2DiskInvalidCacheScope(t *testing.T) {
 	err := Cache2Disk("set", "", "")
-	assert.Assert(t, err.Error() == "Error: <nil>, cache directory empty for cache scope")
+	assert.Assert(t, err.Error() == "Error: <nil>, cache directory empty for cache scope ")
 }
 
 // test to validate invalid src and cache path
 func TestCache2DiskInvalidSrcPath(t *testing.T) {
+	Setup()
 	err := Cache2Disk("set", "pipeline", "../nodirectory/cache/local")
-	assert.Assert(t, err.Error() == "Error: <nil>, cache directory empty for cache scope pipeline")
+	assert.ErrorContains(t, err, "no such file or directory")
 }
 
 // test to remove cache files from shared storage pipeline directory
