@@ -79,8 +79,6 @@ func TestCache2DiskForJob(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(cache, local, "local.txt"))
 	assert.Assert(t, err == nil)
-
-	//defer os.RemoveAll(cache)
 }
 
 // test to copy cache files from local build dir to shared storage
@@ -96,8 +94,6 @@ func TestCache2DiskForEvent(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(cache, local, "local.txt"))
 	assert.Assert(t, err == nil)
-
-	//defer os.RemoveAll(cache)
 }
 
 // test to copy pipeline cache files from shared storage pipeline directory
@@ -124,8 +120,6 @@ func TestCache2DiskForPipelineToBuild(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(local, "fromcache/test.txt"))
 	assert.Assert(t, err == nil)
-
-	//defer os.RemoveAll("../data/cache/local/fromcache")
 }
 
 // test to remove cache files from shared storage pipeline directory
@@ -137,8 +131,6 @@ func TestCache2DiskRemoveCache(t *testing.T) {
 
 	_, err := os.Stat(filepath.Join(cache,local))
 	assert.ErrorContains(t, err, "no such file or directory")
-
-	//defer os.RemoveAll(cache)
 }
 
 // test to copy cache files from local build dir to shared storage
@@ -158,9 +150,6 @@ func TestCache2DiskForPipelineWithTilde(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(cache, localPath, "test.txt"))
 	assert.Assert(t, err == nil)
-
-	//defer os.RemoveAll(localPath)
-	//defer os.RemoveAll(cache)
 }
 
 func TestCleanup(t *testing.T) {
