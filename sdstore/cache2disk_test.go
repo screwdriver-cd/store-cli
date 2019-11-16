@@ -56,6 +56,9 @@ func TestCache2DiskForPipeline(t *testing.T) {
 
 	_, err := os.Stat(filepath.Join(cache, local, "test/test.txt"))
 	assert.Assert(t, err == nil)
+
+	_, err = os.Stat(filepath.Join(cache, local, "local.txt"))
+	assert.Assert(t, err == nil)
 }
 
 // test to copy cache files from local build dir to shared storage
@@ -68,6 +71,9 @@ func TestCache2DiskForJob(t *testing.T) {
 	assert.Assert(t, Cache2Disk("set", "job", local) == nil)
 
 	_, err := os.Stat(filepath.Join(cache, local, "test/test.txt"))
+	assert.Assert(t, err == nil)
+
+	_, err = os.Stat(filepath.Join(cache, local, "local.txt"))
 	assert.Assert(t, err == nil)
 
 	defer os.RemoveAll("../data/cache/job/")
@@ -83,6 +89,9 @@ func TestCache2DiskForEvent(t *testing.T) {
 	assert.Assert(t, Cache2Disk("set", "event", local) == nil)
 
 	_, err := os.Stat(filepath.Join(cache, local, "test/test.txt"))
+	assert.Assert(t, err == nil)
+
+	_, err = os.Stat(filepath.Join(cache, local, "local.txt"))
 	assert.Assert(t, err == nil)
 
 	defer os.RemoveAll("../data/cache/event/")
@@ -107,6 +116,9 @@ func TestCache2DiskForPipelineToBuild(t *testing.T) {
 	assert.Assert(t, Cache2Disk("get", "pipeline", local) == nil)
 
 	_, err = os.Stat(filepath.Join(local, "test/test.txt"))
+	assert.Assert(t, err == nil)
+
+	_, err = os.Stat(filepath.Join(local, "local.txt"))
 	assert.Assert(t, err == nil)
 
 	_, err = os.Stat(filepath.Join(local, "fromcache/test.txt"))
