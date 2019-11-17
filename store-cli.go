@@ -15,6 +15,7 @@ import (
 
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
+var CACHE_STRATEGY string = strings.ToLower(os.Getenv("CACHE_STRATEGY"))
 
 // successExit exits process with 0
 func successExit() {
@@ -111,7 +112,7 @@ func get(storeType, scope, key string) error {
 		return nil
 	}
 
-	if storeType == "cache" && os.Getenv("CACHE_STRATEGY") == "disk" {
+	if strings.ToLower(storeType) == "cache" && CACHE_STRATEGY == "disk" {
 		return sdstore.Cache2Disk("get", scope, key)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
@@ -141,7 +142,7 @@ func set(storeType, scope, filePath string) error {
 		return nil
 	}
 
-	if storeType == "cache" && os.Getenv("CACHE_STRATEGY") == "disk" {
+	if strings.ToLower(storeType) == "cache" && CACHE_STRATEGY == "disk" {
 		return sdstore.Cache2Disk("set", scope, filePath)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
@@ -170,7 +171,7 @@ func remove(storeType, scope, key string) error {
 		return nil
 	}
 
-	if storeType == "cache" && os.Getenv("CACHE_STRATEGY") == "disk" {
+	if strings.ToLower(storeType) == "cache" && CACHE_STRATEGY == "disk" {
 		return sdstore.Cache2Disk("remove", scope, key)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
@@ -241,9 +242,8 @@ func main() {
 				if len(c.Args()) != 1 {
 					return cli.ShowAppHelp(c)
 				}
-				scope := c.String("scope")
-				storeType := c.String("type")
-
+				scope := strings.ToLower(c.String("scope"))
+				storeType := strings.ToLower(c.String("type"))
 				key := c.Args().Get(0)
 				err := get(storeType, scope, key)
 				if err != nil {
@@ -261,8 +261,8 @@ func main() {
 				if len(c.Args()) != 1 {
 					return cli.ShowAppHelp(c)
 				}
-				scope := c.String("scope")
-				storeType := c.String("type")
+				scope := strings.ToLower(c.String("scope"))
+				storeType := strings.ToLower(c.String("type"))
 				key := c.Args().Get(0)
 				err := set(storeType, scope, key)
 				if err != nil {
@@ -280,8 +280,8 @@ func main() {
 				if len(c.Args()) != 1 {
 					return cli.ShowAppHelp(c)
 				}
-				scope := c.String("scope")
-				storeType := c.String("type")
+				scope := strings.ToLower(c.String("scope"))
+				storeType := strings.ToLower(c.String("type"))
 				key := c.Args().Get(0)
 				err := remove(storeType, scope, key)
 				if err != nil {

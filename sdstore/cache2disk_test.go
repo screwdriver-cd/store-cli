@@ -45,9 +45,21 @@ func TestCache2DiskInvalidCacheScope(t *testing.T) {
 	assert.ErrorContains(t, err, "error: <nil>, cache directory empty for cache scope ")
 }
 
-// test to validate invalid src and cache path
-func TestCache2DiskInvalidSrcPath(t *testing.T) {
+// test to validate invalid src and cache path for set
+func TestCache2DiskInvalidSrcPathSet(t *testing.T) {
 	err := Cache2Disk("set", "pipeline", "../nodirectory/cache/local")
+	assert.ErrorContains(t, err, "no such file or directory")
+}
+
+// test to validate invalid src and cache path for get
+func TestCache2DiskInvalidSrcPathGet(t *testing.T) {
+	err := Cache2Disk("get", "pipeline", "../nodirectory/cache/local")
+	assert.ErrorContains(t, err, "no such file or directory")
+}
+
+// test to validate invalid src and cache path for remove
+func TestCache2DiskInvalidSrcPathRemove(t *testing.T) {
+	err := Cache2Disk("remove", "pipeline", "../nodirectory/cache/local")
 	assert.ErrorContains(t, err, "no such file or directory")
 }
 

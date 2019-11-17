@@ -51,10 +51,6 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 		return fmt.Errorf("error: %v in src path %v, command: %v", err, srcPath, command)
 	}
 
-	if _, err = os.Stat(srcPath); err != nil {
-		return fmt.Errorf("error: %v, source path not found", err)
-	}
-
 	if cacheDir, err = filepath.Abs(cacheDir); err != nil {
 		return fmt.Errorf("error: %v in path %v, command: %v", err, cacheDir, command)
 	}
@@ -66,6 +62,10 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 	if command == "get" {
 		src = cachePath
 		dest = srcPath
+	}
+
+	if _, err = os.Stat(src); err != nil {
+		return fmt.Errorf("error: %v, source path not found", err)
 	}
 
 	if command != "get" {
@@ -82,5 +82,6 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 		return err
 	}
 
+	fmt.Println ("Cache complete ...")
 	return nil
 }
