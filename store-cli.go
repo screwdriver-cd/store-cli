@@ -15,7 +15,7 @@ import (
 
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
-var CACHE_STRATEGY string = strings.ToLower(os.Getenv("CACHE_STRATEGY"))
+var CacheStrategy string = strings.ToLower(os.Getenv("CACHE_STRATEGY"))
 
 // successExit exits process with 0
 func successExit() {
@@ -112,7 +112,7 @@ func get(storeType, scope, key string) error {
 		return nil
 	}
 
-	if strings.ToLower(storeType) == "cache" && CACHE_STRATEGY == "disk" {
+	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
 		return sdstore.Cache2Disk("get", scope, key)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
@@ -142,7 +142,7 @@ func set(storeType, scope, filePath string) error {
 		return nil
 	}
 
-	if strings.ToLower(storeType) == "cache" && CACHE_STRATEGY == "disk" {
+	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
 		return sdstore.Cache2Disk("set", scope, filePath)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
@@ -171,7 +171,7 @@ func remove(storeType, scope, key string) error {
 		return nil
 	}
 
-	if strings.ToLower(storeType) == "cache" && CACHE_STRATEGY == "disk" {
+	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
 		return sdstore.Cache2Disk("remove", scope, key)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
