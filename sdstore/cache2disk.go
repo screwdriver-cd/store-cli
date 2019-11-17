@@ -12,14 +12,14 @@ import (
 cache directories and files to/from shared storage
 param - command         set, get or remove
 param - cacheScope     	pipeline, event, job
-param -	srcPath     	source directory
+param -	srcDir     	source directory
 return - nil / error   success - return nil; error - return error description
 */
-func Cache2Disk(command, cacheScope, srcPath string) error {
+func Cache2Disk(command, cacheScope, srcDir string) error {
 	var err error
 
 	homeDir, _ := os.UserHomeDir()
-	cacheDir := ""
+	baseCacheDir := ""
 	command = strings.ToLower(command)
 
 	if command != "set" && command != "get" && command !="remove" {
@@ -28,40 +28,44 @@ func Cache2Disk(command, cacheScope, srcPath string) error {
 
 	switch strings.ToLower(cacheScope) {
 	case "pipeline":
-		cacheDir = os.Getenv("SD_PIPELINE_CACHE_DIR")
+		baseCacheDir = os.Getenv("SD_PIPELINE_CACHE_DIR")
 	case "event":
-		cacheDir = os.Getenv("SD_EVENT_CACHE_DIR")
+		baseCacheDir = os.Getenv("SD_EVENT_CACHE_DIR")
 	case "job":
-		cacheDir = os.Getenv("SD_JOB_CACHE_DIR")
+		baseCacheDir = os.Getenv("SD_JOB_CACHE_DIR")
 	}
 
-	if cacheDir == "" {
+	if baseCacheDir == "" {
 		return fmt.Errorf("error: %v, cache directory empty for cache scope %v", err, cacheScope)
 	}
 
-	if strings.HasPrefix(cacheDir, "~/") {
-		cacheDir = filepath.Join(homeDir, strings.TrimPrefix(cacheDir, "~/"))
+	if strings.HasPrefix(baseCacheDir, "~/") {
+		baseCacheDir = filepath.Join(homeDir, strings.TrimPrefix(baseCacheDir, "~/"))
 	}
 
-	if strings.HasPrefix(srcPath, "~/") {
-		srcPath = filepath.Join(homeDir, strings.TrimPrefix(srcPath, "~/"))
+	if strings.HasPrefix(srcDir, "~/") {
+		srcDir = filepath.Join(homeDir, strings.TrimPrefix(srcDir, "~/"))
 	}
 
-	if srcPath, err = filepath.Abs(srcPath); err != nil {
-		return fmt.Errorf("error: %v in src path %v, command: %v", err, srcPath, command)
+	if srcDir, err = filepath.Abs(srcDir); err != nil {
+		return fmt.Errorf("error: %v in src path %v, command: %v", err, srcDir, command)
 	}
 
-	if cacheDir, err = filepath.Abs(cacheDir); err != nil {
-		return fmt.Errorf("error: %v in path %v, command: %v", err, cacheDir, command)
+	if baseCacheDir, err = filepath.Abs(baseCacheDir); err != nil {
+		return fmt.Errorf("error: %v in path %v, command: %v", err, baseCacheDir, command)
 	}
 
-	cachePath := filepath.Join(cacheDir, srcPath)
-	src := srcPath
-	dest := cachePath
+	if _, err := os.Stat(baseCacheDir); err != nil {
+		return fmt.Errorf("error: %v, cache path %v not found", err, baseCacheDir)
+	}
+
+	cacheDir := filepath.Join(baseCacheDir, srcDir)
+	src := srcDir
+	dest := cacheDir
 
 	if command == "get" {
-		src = cachePath
-		dest = srcPath
+		src = cacheDir
+		dest = srcDir
 	}
 
 	if _, err = os.Stat(src); err != nil {

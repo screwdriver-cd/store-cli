@@ -8,28 +8,38 @@ import (
 	"testing"
 )
 
-func Cleanup(cleanup bool) error {
+func Init(cleanup bool) error {
 	_ = os.Setenv("SD_PIPELINE_CACHE_DIR", "../data/cache/pipeline")
 	_ = os.Setenv("SD_JOB_CACHE_DIR", "../data/cache/job")
 	_ = os.Setenv("SD_EVENT_CACHE_DIR", "../data/cache/event")
-
 	home, _ := os.UserHomeDir()
-	os.RemoveAll(filepath.Join(home, "/tmp/storeclicache"))
-	os.RemoveAll(os.Getenv("SD_PIPELINE_CACHE_DIR"))
-	os.RemoveAll(os.Getenv("SD_EVENT_CACHE_DIR"))
-	os.RemoveAll(os.Getenv("SD_JOB_CACHE_DIR"))
-	os.RemoveAll("../data/cache/local/fromcache")
 
 	if cleanup == true {
+		os.RemoveAll(filepath.Join(home, "/tmp/storeclicache"))
+		os.RemoveAll("../data/cache/local/fromcache")
+		os.RemoveAll(os.Getenv("SD_PIPELINE_CACHE_DIR"))
+		os.RemoveAll(os.Getenv("SD_EVENT_CACHE_DIR"))
+		os.RemoveAll(os.Getenv("SD_JOB_CACHE_DIR"))
+
 		_ = os.Setenv("SD_PIPELINE_CACHE_DIR", "")
 		_ = os.Setenv("SD_JOB_CACHE_DIR", "")
 		_ = os.Setenv("SD_EVENT_CACHE_DIR", "")
+	} else {
+		cacheDir, _ := filepath.Abs(os.Getenv("SD_PIPELINE_CACHE_DIR"))
+		_ = os.MkdirAll(cacheDir, 0777)
+		cacheDir, _ = filepath.Abs(os.Getenv("SD_EVENT_CACHE_DIR"))
+		_ = os.MkdirAll(cacheDir, 0777)
+		cacheDir, _ =  filepath.Abs(os.Getenv("SD_JOB_CACHE_DIR"))
+		_ = os.MkdirAll(cacheDir, 0777)
+		cacheDir = filepath.Join(home, "/tmp/storeclicache/server")
+		_ = os.MkdirAll(cacheDir, 0777)
 	}
+
 	return nil
 }
 
 func TestCache2DiskInit(t *testing.T) {
-	err := Cleanup(false)
+	err := Init(false)
 	assert.NilError(t, err, nil)
 }
 
@@ -116,11 +126,11 @@ func TestCache2DiskForPipelineToBuild(t *testing.T) {
 	local, _ := filepath.Abs("../data/cache/local")
 	_ = os.RemoveAll("../data/cache/local/test")
 
-	cachePath := filepath.Join(cache, local, "fromcache")
-	_ = os.MkdirAll(cachePath, 0777)
+	cacheDir := filepath.Join(cache, local, "fromcache")
+	_ = os.MkdirAll(cacheDir, 0777)
 
 	testData := []byte("file from cache")
-	err := ioutil.WriteFile(filepath.Join(cachePath, "test.txt"), testData, 0777)
+	err := ioutil.WriteFile(filepath.Join(cacheDir, "test.txt"), testData, 0777)
 
 	assert.Assert(t, Cache2Disk("get", "pipeline", local) == nil)
 
@@ -151,20 +161,28 @@ func TestCache2DiskForPipelineWithTilde(t *testing.T) {
 	_ = os.Setenv("SD_PIPELINE_CACHE_DIR", "~/tmp/storeclicache/server")
 	local := "~/tmp/storeclicache/local"
 	home, _ := os.UserHomeDir()
-	localPath := filepath.Join(home, "/tmp/storeclicache","local")
+	localDir := filepath.Join(home, "/tmp/storeclicache","local")
 	cache := filepath.Join(home, "/tmp/storeclicache", "server")
 
-	_ = os.MkdirAll(localPath, 0777)
+	_ = os.MkdirAll(localDir, 0777)
 	testData := []byte("file from cache")
-	err := ioutil.WriteFile(filepath.Join(localPath, "test.txt"), testData, 0777)
+	err := ioutil.WriteFile(filepath.Join(localDir, "test.txt"), testData, 0777)
 
 	assert.Assert(t, Cache2Disk("set", "pipeline", local) == nil)
 
-	_, err = os.Stat(filepath.Join(cache, localPath, "test.txt"))
+	_, err = os.Stat(filepath.Join(cache, localDir, "test.txt"))
 	assert.Assert(t, err == nil)
 }
 
+// test to validate invalid cache scope
+func TestCache2DiskInvalidCacheDirectory(t *testing.T) {
+	cacheDir, _ := filepath.Abs("../data/cache/nodirectory/pipeline")
+	_ = os.Setenv("SD_PIPELINE_CACHE_DIR", cacheDir)
+	err := Cache2Disk("set", "pipeline", "")
+	assert.ErrorContains(t, err, "no such file or directory")
+}
+
 func TestCleanup(t *testing.T) {
-	err := Cleanup(true)
+	err := Init(true)
 	assert.NilError(t, err, nil)
 }
