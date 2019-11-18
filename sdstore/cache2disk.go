@@ -20,10 +20,15 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 
 	homeDir, _ := os.UserHomeDir()
 	baseCacheDir := ""
-	command = strings.ToLower(command)
+	command = strings.ToLower(strings.TrimSpace(command))
+	cacheScope = strings.ToLower(strings.TrimSpace(cacheScope))
 
 	if command != "set" && command != "get" && command !="remove" {
 		return fmt.Errorf("error: %v, command: %v is not expected", err, command)
+	}
+
+	if cacheScope == "" {
+		return fmt.Errorf("error: %v, cache scope %v empty", err, cacheScope)
 	}
 
 	switch strings.ToLower(cacheScope) {
@@ -33,10 +38,6 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 		baseCacheDir = os.Getenv("SD_EVENT_CACHE_DIR")
 	case "job":
 		baseCacheDir = os.Getenv("SD_JOB_CACHE_DIR")
-	}
-
-	if baseCacheDir == "" {
-		return fmt.Errorf("error: %v, cache directory empty for cache scope %v", err, cacheScope)
 	}
 
 	if strings.HasPrefix(baseCacheDir, "~/") {

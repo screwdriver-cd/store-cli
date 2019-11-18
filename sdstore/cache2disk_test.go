@@ -51,8 +51,8 @@ func TestCache2DiskInvalidCommand(t *testing.T) {
 
 // test to validate invalid cache scope
 func TestCache2DiskInvalidCacheScope(t *testing.T) {
-	err := Cache2Disk("set", "", "")
-	assert.ErrorContains(t, err, "error: <nil>, cache directory empty for cache scope ")
+	err := Cache2Disk("set", "   ", "")
+	assert.ErrorContains(t, err, "error: <nil>, cache scope  empty")
 }
 
 // test to validate invalid src and cache path for set
