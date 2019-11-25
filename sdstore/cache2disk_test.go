@@ -29,7 +29,7 @@ func Init(cleanup bool) error {
 		_ = os.MkdirAll(cacheDir, 0777)
 		cacheDir, _ = filepath.Abs(os.Getenv("SD_EVENT_CACHE_DIR"))
 		_ = os.MkdirAll(cacheDir, 0777)
-		cacheDir, _ =  filepath.Abs(os.Getenv("SD_JOB_CACHE_DIR"))
+		cacheDir, _ = filepath.Abs(os.Getenv("SD_JOB_CACHE_DIR"))
 		_ = os.MkdirAll(cacheDir, 0777)
 		cacheDir = filepath.Join(home, "/tmp/storeclicache/server")
 		_ = os.MkdirAll(cacheDir, 0777)
@@ -151,7 +151,7 @@ func TestCache2DiskRemoveCache(t *testing.T) {
 
 	assert.Assert(t, Cache2Disk("remove", "pipeline", "../data/cache/local") == nil)
 
-	_, err := os.Stat(filepath.Join(cache,local))
+	_, err := os.Stat(filepath.Join(cache, local))
 	assert.ErrorContains(t, err, "no such file or directory")
 }
 
@@ -161,7 +161,7 @@ func TestCache2DiskForPipelineWithTilde(t *testing.T) {
 	_ = os.Setenv("SD_PIPELINE_CACHE_DIR", "~/tmp/storeclicache/server")
 	local := "~/tmp/storeclicache/local"
 	home, _ := os.UserHomeDir()
-	localDir := filepath.Join(home, "/tmp/storeclicache","local")
+	localDir := filepath.Join(home, "/tmp/storeclicache", "local")
 	cache := filepath.Join(home, "/tmp/storeclicache", "server")
 
 	_ = os.MkdirAll(localDir, 0777)
