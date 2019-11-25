@@ -23,7 +23,7 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 	command = strings.ToLower(strings.TrimSpace(command))
 	cacheScope = strings.ToLower(strings.TrimSpace(cacheScope))
 
-	if command != "set" && command != "get" && command !="remove" {
+	if command != "set" && command != "get" && command != "remove" {
 		return fmt.Errorf("error: %v, command: %v is not expected", err, command)
 	}
 
@@ -87,6 +87,6 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 		return err
 	}
 
-	fmt.Println ("Cache complete ...")
+	fmt.Println("Cache complete ...")
 	return nil
 }
