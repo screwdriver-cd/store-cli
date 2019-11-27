@@ -77,8 +77,9 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 
 	if command != "get" {
 		if err = os.RemoveAll(dest); err != nil {
-			return fmt.Errorf("error: %v, failed to clean out the destination directory: %v", err, dest)
+			fmt.Printf("error: %v, failed to clean out the destination directory: %v", err, dest)
 		}
+
 		if command == "remove" {
 			fmt.Printf("command: %v, cache directories %v removed \n", command, dest)
 			return nil
