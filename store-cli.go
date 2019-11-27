@@ -15,7 +15,7 @@ import (
 
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
-var CacheStrategy string = strings.ToLower(os.Getenv("CACHE_STRATEGY"))
+var CacheStrategy string = strings.ToLower(os.Getenv("SD_CACHE_STRATEGY"))
 
 // successExit exits process with 0
 func successExit() {
