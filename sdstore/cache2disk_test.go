@@ -64,13 +64,13 @@ func TestCache2DiskInvalidSrcPathSet(t *testing.T) {
 // test to validate invalid src and cache path for get
 func TestCache2DiskInvalidSrcPathGet(t *testing.T) {
 	err := Cache2Disk("get", "pipeline", "../nodirectory/cache/local")
-	assert.ErrorContains(t, err, "no such file or directory")
+	assert.Assert(t, err == nil)
 }
 
 // test to validate invalid src and cache path for remove
 func TestCache2DiskInvalidSrcPathRemove(t *testing.T) {
 	err := Cache2Disk("remove", "pipeline", "../nodirectory/cache/local")
-	assert.ErrorContains(t, err, "no such file or directory")
+	assert.Assert(t, err == nil)
 }
 
 // test to copy cache files from local build dir to shared storage
