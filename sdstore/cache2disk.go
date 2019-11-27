@@ -72,7 +72,9 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 	if _, err = os.Stat(src); err != nil {
 		if command == "set" {
 			return fmt.Errorf("error: %v, source path not found for command %v", err, command)
-		} else {
+		}
+
+		if command == "get" {
 			fmt.Printf("skipping source path not found error for command %v, error: %v", command, err)
 			return nil
 		}
