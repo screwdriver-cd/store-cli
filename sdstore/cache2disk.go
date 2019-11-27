@@ -70,13 +70,21 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 	}
 
 	if _, err = os.Stat(src); err != nil {
-		return fmt.Errorf("error: %v, source path not found", err)
+		if command == "set" {
+			return fmt.Errorf("error: %v, source path not found for command %v", err, command)
+		}
+
+		if command == "get" {
+			fmt.Printf("skipping source path not found error for command %v, error: %v", command, err)
+			return nil
+		}
 	}
 
 	if command != "get" {
 		if err = os.RemoveAll(dest); err != nil {
-			return fmt.Errorf("error: %v, failed to clean out the destination directory: %v", err, dest)
+			fmt.Printf("error: %v, failed to clean out the destination directory: %v", err, dest)
 		}
+
 		if command == "remove" {
 			fmt.Printf("command: %v, cache directories %v removed \n", command, dest)
 			return nil
