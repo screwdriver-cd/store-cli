@@ -1,12 +1,47 @@
 package sdstore
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/otiai10/copy"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 )
+
+/*
+checkMd5 for source and dest
+param - src		source directory
+param - dest     	destination directory
+return - md5, error   	success - return md5, "same"
+			error - return md5, "change detected"
+*/
+func checkMd5(src, dest string) ([]byte, error) {
+	var oldMd5 map[string]string
+	var newMd5 map[string]string
+
+	fmt.Println("start md5 check")
+	oldMd5FilePath := filepath.Join(filepath.Dir(dest), "md5.json")
+	oldMd5File, err := ioutil.ReadFile(oldMd5FilePath)
+	if err != nil {
+		oldMd5File = []byte("")
+		fmt.Printf("error: %v, not able to get md5.json from: %v \n", err, filepath.Dir(dest))
+	}
+	_ = json.Unmarshal(oldMd5File, &oldMd5)
+
+	if newMd5, err = MD5All(src); err != nil {
+		fmt.Printf("error: %v, not able to generate md5 for directory: %v \n", err, src)
+	}
+	md5Json, _ := json.Marshal(newMd5)
+
+	if reflect.DeepEqual(oldMd5, newMd5) {
+		return md5Json, fmt.Errorf("same")
+	} else {
+		return md5Json, fmt.Errorf("change detected")
+	}
+}
 
 /*
 cache directories and files to/from shared storage
@@ -17,6 +52,8 @@ return - nil / error   success - return nil; error - return error description
 */
 func Cache2Disk(command, cacheScope, srcDir string) error {
 	var err error
+	var md5Json []byte
+	var b int
 
 	homeDir, _ := os.UserHomeDir()
 	baseCacheDir := ""
@@ -81,7 +118,18 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 	}
 
 	if command != "get" {
-		if err = os.RemoveAll(dest); err != nil {
+		if command == "set" {
+			fmt.Println("starting md5Check")
+			md5Json, err = checkMd5(src, dest)
+			if err != nil && err.Error() == "same" {
+				fmt.Printf("source %v and destination %v directories are same, aborting \n", src, dest)
+				return nil
+			}
+			fmt.Printf("md5 change detected %v between source %v and destination %v directories \n", string(md5Json), src, dest)
+			fmt.Println("md5Check complete")
+		}
+
+		if err = os.RemoveAll(filepath.Dir(dest)); err != nil {
 			fmt.Printf("error: %v, failed to clean out the destination directory: %v", err, dest)
 		}
 
@@ -93,6 +141,21 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 
 	if err = copy.Copy(src, dest); err != nil {
 		return err
+	}
+
+	if command == "set" {
+		md5Path := filepath.Join(filepath.Dir(dest), "md5.json")
+		jsonFile, err := os.Create(md5Path)
+		if err != nil {
+			fmt.Printf("error: %v, not able to create %v md5.json file", err, md5Path)
+		}
+		defer jsonFile.Close()
+		if b, err = jsonFile.Write(md5Json); err != nil {
+			fmt.Printf("error %v writing md5.json file to destination %v \n", err, md5Path)
+		} else {
+			_ = jsonFile.Sync()
+			fmt.Printf("wrote %d bytes of md5.json file to destination %v \n", b, md5Path)
+		}
 	}
 
 	fmt.Println("Cache complete ...")

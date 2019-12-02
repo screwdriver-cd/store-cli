@@ -118,6 +118,24 @@ func TestCache2DiskForEvent(t *testing.T) {
 	assert.Assert(t, err == nil)
 }
 
+// test to copy cache files from local build dir to shared storage
+// pipeline directory
+func TestCache2DiskForPipelineRerun(t *testing.T) {
+	cache, _ := filepath.Abs(os.Getenv("SD_PIPELINE_CACHE_DIR"))
+	local, _ := filepath.Abs("../data/cache/local")
+
+	assert.Assert(t, Cache2Disk("set", "pipeline", local) == nil)
+
+	_, err := os.Stat(filepath.Join(cache, local, "test/test.txt"))
+	assert.Assert(t, err == nil)
+
+	_, err = os.Stat(filepath.Join(cache, local, "local.txt"))
+	assert.Assert(t, err == nil)
+
+	_, err = os.Stat(filepath.Join(cache, filepath.Dir(local), "md5.json"))
+	assert.Assert(t, err == nil)
+}
+
 // test to copy pipeline cache files from shared storage pipeline directory
 // to local build dir. Do NOT overwrite existing directories and files present
 // in local build dir
