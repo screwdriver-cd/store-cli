@@ -90,19 +90,13 @@ func TestCache2DiskForPipeline(t *testing.T) {
 
 // test to copy cache files from local build dir to shared storage
 // job directory
-/*
+
 func TestCache2DiskForJobMaxSize(t *testing.T) {
-	local, _ := filepath.Abs("../data/cache/local")
-	src, _ := filepath.Abs("../dist/store-cli_linux_amd64/store-cli")
-
-	_ = copy.Copy(src, filepath.Join(local, "store-cli"))
-	err := Cache2Disk("set", "job", local, false, false, 1)
-
+	src, _ := filepath.Abs("../data/cache/2mb")
+	err := Cache2Disk("set", "job", src, false, false, 1)
 	assert.ErrorContains(t, err, " is more than allowed max limit 1MB")
-
-	_ = os.RemoveAll(filepath.Join(local, "store-cli"))
 }
-*/
+
 
 // test to copy cache files from local build dir to shared storage
 // job directory
