@@ -11,13 +11,30 @@ import (
 	"strings"
 )
 
-/*
-checkMd5 for source and dest
-param - src		source directory
-param - dest     	destination directory
-return - md5, error   	success - return md5, "same"
-			error - return md5, "change detected"
-*/
+func getDirSizeInMB(path string, info os.FileInfo) int64 {
+	size := info.Size()
+	if !info.IsDir() {
+		return size
+	}
+
+	dir, err := os.Open(path)
+	if err != nil {
+		fmt.Printf("error: %v in opening path %v \n", err, path)
+		return size
+	}
+	defer dir.Close()
+
+	fis, err := dir.Readdir(-1)
+	if err != nil {
+		fmt.Printf("error: %v in reading directory %v \n", err, dir)
+	}
+	for _, fi := range fis {
+		size += getDirSizeInMB(path + "/" + fi.Name(), fi)
+	}
+
+	return size
+}
+
 func checkMd5(src, dest string) ([]byte, error) {
 	var oldMd5 map[string]string
 	var newMd5 map[string]string
@@ -37,10 +54,124 @@ func checkMd5(src, dest string) ([]byte, error) {
 	md5Json, _ := json.Marshal(newMd5)
 
 	if reflect.DeepEqual(oldMd5, newMd5) {
-		return md5Json, fmt.Errorf("same")
+		return md5Json, fmt.Errorf("source and destination directories md5 are same, no change detected")
 	} else {
-		return md5Json, fmt.Errorf("change detected")
+		return md5Json, fmt.Errorf("source and destination directories md5 are different, change detected")
 	}
+}
+
+func removeAllDirectory(path, command string)  {
+	path = filepath.Dir(path)
+	if err := os.RemoveAll(path); err != nil {
+		fmt.Printf("error: %v, failed to clean out the destination directory: %v \n", err, path)
+	}
+	fmt.Printf("command: %v, cache directories %v removed \n", command, path)
+}
+
+func getCache(src, dest, command string, compress bool) error {
+	var err error
+
+	if compress {
+		if _, err = os.Stat(filepath.Dir(src)); err != nil {
+			fmt.Printf("skipping source path %v not found error for command %v, error: %v \n", src, command, err)
+			return nil
+		}
+	} else {
+		if _, err = os.Stat(src); err != nil {
+			fmt.Printf("skipping source path %v not found error for command %v, error: %v \n", src, command, err)
+			return nil
+		}
+	}
+
+	fmt.Println("get cache")
+	if compress {
+		fmt.Println("zip enabled")
+		srcZipPath := fmt.Sprintf("%s.zip", src)
+		targetZipPath := fmt.Sprintf("%s.zip", dest)
+		_ = os.MkdirAll(filepath.Dir(dest), 0777)
+		if err = copy.Copy(srcZipPath, targetZipPath); err != nil {
+			return err
+		}
+		_, err = Unzip(targetZipPath, filepath.Dir(dest))
+		if err != nil {
+			fmt.Printf("Could not unzip file %s: %s", filepath.Dir(src), err)
+		}
+		defer os.RemoveAll(targetZipPath)
+	} else {
+		fmt.Println("zip disabled")
+		if err = copy.Copy(src, dest); err != nil {
+			return err
+		}
+	}
+	fmt.Println("get cache complete")
+	return nil
+}
+
+func setCache(src, dest, command string, compress, md5Check bool, cacheSizeLimitInMB int64) error {
+	var err error
+	var b int
+	var md5Json []byte
+	var fileInfo os.FileInfo
+
+	fmt.Println("set cache")
+	if fileInfo, err = os.Stat(src); err != nil {
+		return fmt.Errorf("error: %v, source path not found for command %v \n", err, command)
+	}
+
+	sizeInMB := int64(float64(getDirSizeInMB(src, fileInfo)) * 0.000001)
+	if sizeInMB > cacheSizeLimitInMB {
+		return fmt.Errorf("error, source directory size %v is more than allowed max limit %v", sizeInMB, cacheSizeLimitInMB)
+	}
+	fmt.Printf("source directory size %v, allowed max limit %v\n", sizeInMB, cacheSizeLimitInMB)
+	fmt.Printf("md5Check %v\n", md5Check)
+	if md5Check {
+		fmt.Println("starting md5Check")
+		md5Json, err = checkMd5(src, dest)
+		if err != nil && err.Error() == "source and destination directories md5 are same, no change detected" {
+			fmt.Printf("source %s and destination %s directories are same, aborting \n", src, dest)
+			return nil
+		}
+		fmt.Println("md5Check complete")
+	}
+	removeAllDirectory(dest, command)
+
+	if compress {
+		fmt.Println("zip enabled")
+		srcZipPath := fmt.Sprintf("%s.zip", src)
+		targetZipPath := fmt.Sprintf("%s.zip", dest)
+
+		err = Zip(src, srcZipPath)
+		if err != nil {
+			fmt.Printf("failed to zip files from %v to %v \n", src, srcZipPath)
+			return fmt.Errorf("error %v\n", err)
+		}
+		_ = os.MkdirAll(filepath.Dir(dest), 0777)
+		if err = copy.Copy(srcZipPath, targetZipPath); err != nil {
+			return err
+		}
+		defer os.RemoveAll(srcZipPath)
+	} else {
+		fmt.Println("zip disabled")
+		if err = copy.Copy(src, dest); err != nil {
+			return err
+		}
+	}
+	fmt.Println("set cache complete")
+	if md5Check {
+		md5Path := filepath.Join(filepath.Dir(dest), "md5.json")
+		jsonFile, err := os.Create(md5Path)
+		if err != nil {
+			fmt.Printf("error: %v, not able to create %v md5.json file", err, dest)
+		}
+		defer jsonFile.Close()
+		if b, err = jsonFile.Write(md5Json); err != nil {
+			fmt.Printf("error %v writing md5.json file to destination %v \n", err, dest)
+		} else {
+			_ = jsonFile.Sync()
+			fmt.Printf("wrote %d bytes of md5.json file to destination %v \n", b, dest)
+		}
+	}
+	return nil
 }
 
 /*
@@ -50,10 +181,8 @@ param - cacheScope     	pipeline, event, job
 param -	srcDir     	source directory
 return - nil / error   success - return nil; error - return error description
 */
-func Cache2Disk(command, cacheScope, srcDir string) error {
+func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cacheSizeLimitInMB int64) error {
 	var err error
-	var md5Json []byte
-	var b int
 
 	homeDir, _ := os.UserHomeDir()
 	baseCacheDir := ""
@@ -68,7 +197,7 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 		return fmt.Errorf("error: %v, cache scope %v empty", err, cacheScope)
 	}
 
-	switch strings.ToLower(cacheScope) {
+	switch cacheScope {
 	case "pipeline":
 		baseCacheDir = os.Getenv("SD_PIPELINE_CACHE_DIR")
 	case "event":
@@ -101,63 +230,21 @@ func Cache2Disk(command, cacheScope, srcDir string) error {
 	src := srcDir
 	dest := cacheDir
 
-	if command == "get" {
+	switch command {
+	case "set":
+		if err = setCache(src, dest, command, compress, md5Check, cacheSizeLimitInMB); err != nil {
+			return err
+		}
+	case "get":
 		src = cacheDir
 		dest = srcDir
+		if err = getCache(src, dest, command, compress); err != nil {
+			fmt.Printf("error %v in get cache \n", err)
+		}
+	case "remove":
+		removeAllDirectory(dest, command)
+	default:
+		return fmt.Errorf("error: %v, command: %v is not expected", err, command)
 	}
-
-	if _, err = os.Stat(src); err != nil {
-		if command == "set" {
-			return fmt.Errorf("error: %v, source path not found for command %v", err, command)
-		}
-
-		if command == "get" {
-			fmt.Printf("skipping source path not found error for command %v, error: %v", command, err)
-			return nil
-		}
-	}
-
-	if command != "get" {
-		if command == "set" {
-			fmt.Println("starting md5Check")
-			md5Json, err = checkMd5(src, dest)
-			if err != nil && err.Error() == "same" {
-				fmt.Printf("source %v and destination %v directories are same, aborting \n", src, dest)
-				return nil
-			}
-			fmt.Printf("md5 change detected %v between source %v and destination %v directories \n", string(md5Json), src, dest)
-			fmt.Println("md5Check complete")
-		}
-
-		if err = os.RemoveAll(filepath.Dir(dest)); err != nil {
-			fmt.Printf("error: %v, failed to clean out the destination directory: %v", err, dest)
-		}
-
-		if command == "remove" {
-			fmt.Printf("command: %v, cache directories %v removed \n", command, dest)
-			return nil
-		}
-	}
-
-	if err = copy.Copy(src, dest); err != nil {
-		return err
-	}
-
-	if command == "set" {
-		md5Path := filepath.Join(filepath.Dir(dest), "md5.json")
-		jsonFile, err := os.Create(md5Path)
-		if err != nil {
-			fmt.Printf("error: %v, not able to create %v md5.json file", err, md5Path)
-		}
-		defer jsonFile.Close()
-		if b, err = jsonFile.Write(md5Json); err != nil {
-			fmt.Printf("error %v writing md5.json file to destination %v \n", err, md5Path)
-		} else {
-			_ = jsonFile.Sync()
-			fmt.Printf("wrote %d bytes of md5.json file to destination %v \n", b, md5Path)
-		}
-	}
-
-	fmt.Println("Cache complete ...")
 	return nil
 }
