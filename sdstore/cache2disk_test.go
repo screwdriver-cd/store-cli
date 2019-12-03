@@ -1,6 +1,7 @@
 package sdstore
 
 import (
+	"github.com/otiai10/copy"
 	"gotest.tools/assert"
 	"io/ioutil"
 	"os"
@@ -90,6 +91,20 @@ func TestCache2DiskForPipeline(t *testing.T) {
 
 // test to copy cache files from local build dir to shared storage
 // job directory
+func TestCache2DiskForJobMaxSize(t *testing.T) {
+	local, _ := filepath.Abs("../data/cache/local")
+	src, _  := filepath.Abs("../store-cli")
+
+	_ = copy.Copy(src, filepath.Join(local, "store-cli"))
+	err := Cache2Disk("set", "job", local, false, false, 1)
+
+	assert.ErrorContains(t, err, " is more than allowed max limit 1MB")
+
+	_ = os.RemoveAll(filepath.Join(local, "store-cli"))
+}
+
+// test to copy cache files from local build dir to shared storage
+// job directory
 func TestCache2DiskForJob(t *testing.T) {
 	cache, _ := filepath.Abs(os.Getenv("SD_JOB_CACHE_DIR"))
 	local, _ := filepath.Abs("../data/cache/local")
@@ -113,6 +128,31 @@ func TestCache2DiskForJobWithCompress(t *testing.T) {
 
 	_, err := os.Stat(filepath.Join(cache, filepath.Dir(local), "local.zip"))
 	assert.Assert(t, err == nil)
+}
+
+// test to cache files from shared storage to local build dir
+// job directory
+func TestCache2DiskForJobGetWithCompress(t *testing.T) {
+	// cache, _ := filepath.Abs(os.Getenv("SD_JOB_CACHE_DIR"))
+	local, _ := filepath.Abs("../data/cache/local")
+	_ = os.RemoveAll("../data/cache/local/test")
+
+	assert.Assert(t, Cache2Disk("get", "job", local, true, false, 0) == nil)
+
+	_, err := os.Stat(filepath.Join(local, "test/test.txt"))
+	assert.Assert(t, err == nil)
+
+	_, err = os.Stat(filepath.Join(local, "local.txt"))
+	assert.Assert(t, err == nil)
+}
+
+// test to cache files from shared storage to local build dir
+// job directory
+func TestCache2DiskForJobGetWithCompressNoFile(t *testing.T) {
+	// cache, _ := filepath.Abs(os.Getenv("SD_JOB_CACHE_DIR"))
+	local, _ := filepath.Abs("../data/cache/local1")
+
+	assert.Assert(t, Cache2Disk("get", "job", local, true, false, 0) == nil)
 }
 
 // test to copy cache files from local build dir to shared storage
@@ -212,9 +252,7 @@ func TestCache2DiskInvalidCacheDirectory(t *testing.T) {
 	assert.ErrorContains(t, err, "no such file or directory")
 }
 
-/*
 func TestCleanup(t *testing.T) {
 	err := Init(true)
 	assert.NilError(t, err, nil)
 }
-*/
