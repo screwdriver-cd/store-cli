@@ -93,7 +93,7 @@ func TestCache2DiskForPipeline(t *testing.T) {
 // job directory
 func TestCache2DiskForJobMaxSize(t *testing.T) {
 	local, _ := filepath.Abs("../data/cache/local")
-	src, _  := filepath.Abs("../store-cli")
+	src, _ := filepath.Abs("../dist/store-cli_linux_amd64/store-cli")
 
 	_ = copy.Copy(src, filepath.Join(local, "store-cli"))
 	err := Cache2Disk("set", "job", local, false, false, 1)

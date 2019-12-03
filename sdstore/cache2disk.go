@@ -29,7 +29,8 @@ func getDirSizeInMB(path string, info os.FileInfo) int64 {
 		fmt.Printf("error: %v in reading directory %v \n", err, dir)
 	}
 	for _, fi := range fis {
-		size += getDirSizeInMB(path + "/" + fi.Name(), fi)
+		tmp, _ := filepath.Join(path), fi.Name()
+		size += getDirSizeInMB(tmp, fi)
 	}
 
 	return size
@@ -60,7 +61,7 @@ func checkMd5(src, dest string) ([]byte, error) {
 	}
 }
 
-func removeCacheDirectory(path, command string)  {
+func removeCacheDirectory(path, command string) {
 	path = filepath.Dir(path)
 	if err := os.RemoveAll(path); err != nil {
 		fmt.Printf("error: %v, failed to clean out the destination directory: %v \n", err, path)
