@@ -118,11 +118,14 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 		return fmt.Errorf("error: %v, source path not found for command %v \n", err, command)
 	}
 
-	sizeInMB := int64(float64(getDirSizeInMB(src, fileInfo)) * 0.000001)
-	if cacheMaxSizeInMB > 0 && sizeInMB > cacheMaxSizeInMB {
-		return fmt.Errorf("error, source directory size %v is more than allowed max limit %v", sizeInMB, cacheMaxSizeInMB)
+	if cacheMaxSizeInMB > 0 {
+		sizeInMB := int64(float64(getDirSizeInMB(src, fileInfo)) * 0.000001)
+		if sizeInMB > cacheMaxSizeInMB {
+			return fmt.Errorf("error, source directory size %v is more than allowed max limit %v", sizeInMB, cacheMaxSizeInMB)
+		}
+		fmt.Printf("source directory size %v, allowed max limit %v\n", sizeInMB, cacheMaxSizeInMB)
 	}
-	fmt.Printf("source directory size %v, allowed max limit %v\n", sizeInMB, cacheMaxSizeInMB)
+
 	fmt.Printf("md5Check %v\n", md5Check)
 	if md5Check {
 		fmt.Println("starting md5Check")
