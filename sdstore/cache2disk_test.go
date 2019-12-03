@@ -1,7 +1,6 @@
 package sdstore
 
 import (
-	"github.com/otiai10/copy"
 	"gotest.tools/assert"
 	"io/ioutil"
 	"os"
@@ -91,6 +90,7 @@ func TestCache2DiskForPipeline(t *testing.T) {
 
 // test to copy cache files from local build dir to shared storage
 // job directory
+/*
 func TestCache2DiskForJobMaxSize(t *testing.T) {
 	local, _ := filepath.Abs("../data/cache/local")
 	src, _ := filepath.Abs("../dist/store-cli_linux_amd64/store-cli")
@@ -102,6 +102,7 @@ func TestCache2DiskForJobMaxSize(t *testing.T) {
 
 	_ = os.RemoveAll(filepath.Join(local, "store-cli"))
 }
+*/
 
 // test to copy cache files from local build dir to shared storage
 // job directory
