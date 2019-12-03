@@ -107,7 +107,7 @@ func getCache(src, dest, command string, compress bool) error {
 	return nil
 }
 
-func setCache(src, dest, command string, compress, md5Check bool, cacheSizeLimitInMB int64) error {
+func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
 	var err error
 	var b int
 	var md5Json []byte
@@ -119,10 +119,10 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheSizeLimit
 	}
 
 	sizeInMB := int64(float64(getDirSizeInMB(src, fileInfo)) * 0.000001)
-	if sizeInMB > cacheSizeLimitInMB {
-		return fmt.Errorf("error, source directory size %v is more than allowed max limit %v", sizeInMB, cacheSizeLimitInMB)
+	if sizeInMB > cacheMaxSizeInMB {
+		return fmt.Errorf("error, source directory size %v is more than allowed max limit %v", sizeInMB, cacheMaxSizeInMB)
 	}
-	fmt.Printf("source directory size %v, allowed max limit %v\n", sizeInMB, cacheSizeLimitInMB)
+	fmt.Printf("source directory size %v, allowed max limit %v\n", sizeInMB, cacheMaxSizeInMB)
 	fmt.Printf("md5Check %v\n", md5Check)
 	if md5Check {
 		fmt.Println("starting md5Check")
