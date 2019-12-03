@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
 	"github.com/screwdriver-cd/store-cli/sdstore"
@@ -16,6 +17,9 @@ import (
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
 var CacheStrategy string = strings.ToLower(os.Getenv("SD_CACHE_STRATEGY"))
+var CacheCompress, _ = strconv.ParseBool(strings.ToLower(strings.TrimSpace(os.Getenv("SD_CACHE_COMPRESS"))))
+var CacheMd5Check, _ = strconv.ParseBool(strings.ToLower(strings.TrimSpace(os.Getenv("SD_CACHE_MD5CHECK"))))
+var CacheSizeLimitInMB, _ = strconv.ParseInt(os.Getenv("SD_CACHE_SIZE_LIMIT_MB"), 0, 64)
 
 // successExit exits process with 0
 func successExit() {
@@ -113,7 +117,7 @@ func get(storeType, scope, key string) error {
 	}
 
 	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
-		return sdstore.Cache2Disk("get", scope, key)
+		return sdstore.Cache2Disk("get", scope, key, CacheCompress, CacheMd5Check, CacheSizeLimitInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
 		fullURL, err := makeURL(storeType, scope, key)
@@ -143,7 +147,7 @@ func set(storeType, scope, filePath string) error {
 	}
 
 	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
-		return sdstore.Cache2Disk("set", scope, filePath)
+		return sdstore.Cache2Disk("set", scope, filePath, CacheCompress, CacheMd5Check, CacheSizeLimitInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
 		fullURL, err := makeURL(storeType, scope, filePath)
@@ -172,7 +176,7 @@ func remove(storeType, scope, key string) error {
 	}
 
 	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
-		return sdstore.Cache2Disk("remove", scope, key)
+		return sdstore.Cache2Disk("remove", scope, key, CacheCompress, CacheMd5Check, CacheSizeLimitInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
 		store := sdstore.NewStore(sdToken)
