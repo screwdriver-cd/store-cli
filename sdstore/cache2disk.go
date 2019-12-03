@@ -181,7 +181,7 @@ param - cacheScope     	pipeline, event, job
 param -	srcDir     	source directory
 return - nil / error   success - return nil; error - return error description
 */
-func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cacheSizeLimitInMB int64) error {
+func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
 	var err error
 
 	homeDir, _ := os.UserHomeDir()
@@ -232,7 +232,7 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 
 	switch command {
 	case "set":
-		if err = setCache(src, dest, command, compress, md5Check, cacheSizeLimitInMB); err != nil {
+		if err = setCache(src, dest, command, compress, md5Check, cacheMaxSizeInMB); err != nil {
 			return err
 		}
 	case "get":
