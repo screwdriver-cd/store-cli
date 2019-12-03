@@ -11,26 +11,27 @@ import (
 	"strings"
 )
 
-func getDirSizeInMB(path string, info os.FileInfo) int64 {
-	size := info.Size()
-	if !info.IsDir() {
-		return size
+// taken and modified from https://stackoverflow.com/questions/32482673/how-to-get-directory-total-size
+func getDirSizeInBytes(path string) int64 {
+	sizes := make(chan int64)
+	readSize := func(path string, file os.FileInfo, err error) error {
+		if err != nil || file == nil {
+			return nil
+		}
+		if !file.IsDir() {
+			sizes <- file.Size()
+		}
+		return nil
 	}
 
-	dir, err := os.Open(path)
-	if err != nil {
-		fmt.Printf("error: %v in opening path %v \n", err, path)
-		return size
-	}
-	defer dir.Close()
+	go func() {
+		_ = filepath.Walk(path, readSize)
+		close(sizes)
+	}()
 
-	fis, err := dir.Readdir(-1)
-	if err != nil {
-		fmt.Printf("error: %v in reading directory %v \n", err, dir)
-	}
-	for _, fi := range fis {
-		tmp, _ := filepath.Join(path), fi.Name()
-		size += getDirSizeInMB(tmp, fi)
+	size := int64(0)
+	for s := range sizes {
+		size += s
 	}
 
 	return size
@@ -112,15 +113,14 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 	var err error
 	var b int
 	var md5Json []byte
-	var fileInfo os.FileInfo
 
 	fmt.Println("set cache")
-	if fileInfo, err = os.Stat(src); err != nil {
+	if _, err = os.Stat(src); err != nil {
 		return fmt.Errorf("error: %v, source path not found for command %v \n", err, command)
 	}
 
 	if cacheMaxSizeInMB > 0 {
-		sizeInMB := int64(float64(getDirSizeInMB(src, fileInfo)) * 0.000001)
+		sizeInMB := int64(float64(getDirSizeInBytes(src)) * 0.000001)
 		if sizeInMB > cacheMaxSizeInMB {
 			return fmt.Errorf("error, source directory size %vMB is more than allowed max limit %vMB", sizeInMB, cacheMaxSizeInMB)
 		}
