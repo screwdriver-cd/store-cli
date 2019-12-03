@@ -60,7 +60,7 @@ func checkMd5(src, dest string) ([]byte, error) {
 	}
 }
 
-func removeAllDirectory(path, command string)  {
+func removeCacheDirectory(path, command string)  {
 	path = filepath.Dir(path)
 	if err := os.RemoveAll(path); err != nil {
 		fmt.Printf("error: %v, failed to clean out the destination directory: %v \n", err, path)
@@ -133,7 +133,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheSizeLimit
 		}
 		fmt.Println("md5Check complete")
 	}
-	removeAllDirectory(dest, command)
+	removeCacheDirectory(dest, command)
 
 	if compress {
 		fmt.Println("zip enabled")
@@ -242,7 +242,7 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 			fmt.Printf("error %v in get cache \n", err)
 		}
 	case "remove":
-		removeAllDirectory(dest, command)
+		removeCacheDirectory(dest, command)
 	default:
 		return fmt.Errorf("error: %v, command: %v is not expected", err, command)
 	}
