@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/otiai10/copy"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -46,26 +47,26 @@ func checkMd5(src, dest string) ([]byte, error) {
 	oldMd5File, err := ioutil.ReadFile(oldMd5FilePath)
 	if err != nil {
 		oldMd5File = []byte("")
-		fmt.Printf("error: %v, not able to get md5.json from: %v \n", err, filepath.Dir(dest))
+		log.Printf("error: %v, not able to get md5.json from: %v \n", err, filepath.Dir(dest))
 	}
 	_ = json.Unmarshal(oldMd5File, &oldMd5)
 
 	if newMd5, err = MD5All(src); err != nil {
-		fmt.Printf("error: %v, not able to generate md5 for directory: %v \n", err, src)
+		log.Printf("error: %v, not able to generate md5 for directory: %v \n", err, src)
 	}
 	md5Json, _ := json.Marshal(newMd5)
 
 	if reflect.DeepEqual(oldMd5, newMd5) {
-		return md5Json, fmt.Errorf("source and destination directories md5 are same, no change detected")
+		return md5Json, fmt.Errorf("md5-same")
 	} else {
-		return md5Json, fmt.Errorf("source and destination directories md5 are different, change detected")
+		return md5Json, fmt.Errorf("md5-changed")
 	}
 }
 
 func removeCacheDirectory(path, command string) {
 	path = filepath.Dir(path)
 	if err := os.RemoveAll(path); err != nil {
-		fmt.Printf("error: %v, failed to clean out the destination directory: %v \n", err, path)
+		log.Printf("error: %v, failed to clean out the destination directory: %v \n", err, path)
 	}
 	fmt.Printf("command: %v, cache directories %v removed \n", command, path)
 }
@@ -75,12 +76,12 @@ func getCache(src, dest, command string, compress bool) error {
 
 	if compress {
 		if _, err = os.Stat(filepath.Dir(src)); err != nil {
-			fmt.Printf("skipping source path %v not found error for command %v, error: %v \n", src, command, err)
+			log.Printf("skipping source path %v not found error for command %v, error: %v \n", src, command, err)
 			return nil
 		}
 	} else {
 		if _, err = os.Stat(src); err != nil {
-			fmt.Printf("skipping source path %v not found error for command %v, error: %v \n", src, command, err)
+			log.Printf("skipping source path %v not found error for command %v, error: %v \n", src, command, err)
 			return nil
 		}
 	}
@@ -96,7 +97,7 @@ func getCache(src, dest, command string, compress bool) error {
 		}
 		_, err = Unzip(targetZipPath, filepath.Dir(dest))
 		if err != nil {
-			fmt.Printf("Could not unzip file %s: %s", filepath.Dir(src), err)
+			log.Printf("Could not unzip file %s: %s", filepath.Dir(src), err)
 		}
 		defer os.RemoveAll(targetZipPath)
 	} else {
@@ -131,8 +132,8 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 	if md5Check {
 		fmt.Println("starting md5Check")
 		md5Json, err = checkMd5(src, dest)
-		if err != nil && err.Error() == "source and destination directories md5 are same, no change detected" {
-			fmt.Printf("source %s and destination %s directories are same, aborting \n", src, dest)
+		if err != nil && err.Error() == "md5-same" {
+			log.Printf("source %s and destination %s directories are same, aborting \n", src, dest)
 			return nil
 		}
 		fmt.Println("md5Check complete")
@@ -165,11 +166,11 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 		md5Path := filepath.Join(filepath.Dir(dest), "md5.json")
 		jsonFile, err := os.Create(md5Path)
 		if err != nil {
-			fmt.Printf("error: %v, not able to create %v md5.json file", err, dest)
+			log.Printf("error: %v, not able to create %v md5.json file", err, dest)
 		}
 		defer jsonFile.Close()
 		if b, err = jsonFile.Write(md5Json); err != nil {
-			fmt.Printf("error %v writing md5.json file to destination %v \n", err, dest)
+			log.Printf("error %v writing md5.json file to destination %v \n", err, dest)
 		} else {
 			_ = jsonFile.Sync()
 			fmt.Printf("wrote %d bytes of md5.json file to destination %v \n", b, dest)
@@ -243,7 +244,7 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 		src = cacheDir
 		dest = srcDir
 		if err = getCache(src, dest, command, compress); err != nil {
-			fmt.Printf("error %v in get cache \n", err)
+			log.Printf("error %v in get cache \n", err)
 		}
 	case "remove":
 		removeCacheDirectory(dest, command)
