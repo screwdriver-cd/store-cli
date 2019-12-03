@@ -119,7 +119,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 	}
 
 	sizeInMB := int64(float64(getDirSizeInMB(src, fileInfo)) * 0.000001)
-	if sizeInMB > cacheMaxSizeInMB {
+	if cacheMaxSizeInMB > 0 && sizeInMB > cacheMaxSizeInMB {
 		return fmt.Errorf("error, source directory size %v is more than allowed max limit %v", sizeInMB, cacheMaxSizeInMB)
 	}
 	fmt.Printf("source directory size %v, allowed max limit %v\n", sizeInMB, cacheMaxSizeInMB)
