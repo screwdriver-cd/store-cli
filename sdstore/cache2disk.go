@@ -47,9 +47,9 @@ func getDirSizeInBytes(path string) int64 {
 compare md5 for source and destination directories
 param - src         		source directory
 param - dest			destination directory
-return - bytearray / error   	return md5 byte array, error - md5-same / md-chagned
+return - bytearray / bool   	return md5 byte array, bool - true (same) / false (changed)
 */
-func checkMd5(src, dest string) ([]byte, error) {
+func checkMd5(src, dest string) ([]byte, bool) {
 	var oldMd5 map[string]string
 	var newMd5 map[string]string
 
@@ -68,9 +68,9 @@ func checkMd5(src, dest string) ([]byte, error) {
 	md5Json, _ := json.Marshal(newMd5)
 
 	if reflect.DeepEqual(oldMd5, newMd5) {
-		return md5Json, fmt.Errorf("md5-same")
+		return md5Json, true
 	} else {
-		return md5Json, fmt.Errorf("md5-changed")
+		return md5Json, false
 	}
 }
 
@@ -149,6 +149,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 	var err error
 	var b int
 	var md5Json []byte
+	var md5Status bool
 
 	fmt.Println("set cache")
 	if _, err = os.Stat(src); err != nil {
@@ -166,8 +167,8 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 	fmt.Printf("md5Check %v\n", md5Check)
 	if md5Check {
 		fmt.Println("starting md5Check")
-		md5Json, err = checkMd5(src, dest)
-		if err != nil && err.Error() == "md5-same" {
+		md5Json, md5Status = checkMd5(src, dest)
+		if md5Status {
 			log.Printf("source %s and destination %s directories are same, aborting \n", src, dest)
 			return nil
 		}
