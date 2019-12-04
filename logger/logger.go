@@ -26,7 +26,7 @@ const (
 	ZIP          = "zip"
 )
 
-func Write(level, module, errType string, v ...interface{}) {
+func Log(level, module, errType string, v ...interface{}) {
 	switch level {
 	case "info":
 		logger.WithFields(log.Fields{"module": module, "type": errType}).Info(v...)
