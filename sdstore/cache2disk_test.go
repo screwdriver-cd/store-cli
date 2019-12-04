@@ -45,31 +45,31 @@ func TestCache2DiskInit(t *testing.T) {
 
 // test to validate invalid command
 func TestCache2DiskInvalidCommand(t *testing.T) {
-	err := Cache2Disk("", "pipeline", "")
-	assert.ErrorContains(t, err, "error: <nil>, command:  is not expected")
+	err := Cache2Disk("", "pipeline", "", false, false, 0)
+	assert.ErrorContains(t, err, "command:  is not expected")
 }
 
 // test to validate invalid cache scope
 func TestCache2DiskInvalidCacheScope(t *testing.T) {
-	err := Cache2Disk("set", "   ", "")
-	assert.ErrorContains(t, err, "error: <nil>, cache scope  empty")
+	err := Cache2Disk("set", "   ", "", false, false, 0)
+	assert.ErrorContains(t, err, "cache scope  empty")
 }
 
 // test to validate invalid src and cache path for set
 func TestCache2DiskInvalidSrcPathSet(t *testing.T) {
-	err := Cache2Disk("set", "pipeline", "../nodirectory/cache/local")
+	err := Cache2Disk("set", "pipeline", "../nodirectory/cache/local", false, false, 0)
 	assert.ErrorContains(t, err, "no such file or directory")
 }
 
 // test to validate invalid src and cache path for get
 func TestCache2DiskInvalidSrcPathGet(t *testing.T) {
-	err := Cache2Disk("get", "pipeline", "../nodirectory/cache/local")
+	err := Cache2Disk("get", "pipeline", "../nodirectory/cache/local", false, false, 0)
 	assert.Assert(t, err == nil)
 }
 
 // test to validate invalid src and cache path for remove
 func TestCache2DiskInvalidSrcPathRemove(t *testing.T) {
-	err := Cache2Disk("remove", "pipeline", "../nodirectory/cache/local")
+	err := Cache2Disk("remove", "pipeline", "../nodirectory/cache/local", false, false, 0)
 	assert.Assert(t, err == nil)
 }
 
@@ -79,7 +79,7 @@ func TestCache2DiskForPipeline(t *testing.T) {
 	cache, _ := filepath.Abs(os.Getenv("SD_PIPELINE_CACHE_DIR"))
 	local, _ := filepath.Abs("../data/cache/local")
 
-	assert.Assert(t, Cache2Disk("set", "pipeline", local) == nil)
+	assert.Assert(t, Cache2Disk("set", "pipeline", local, false, true, 0) == nil)
 
 	_, err := os.Stat(filepath.Join(cache, local, "test/test.txt"))
 	assert.Assert(t, err == nil)
@@ -90,11 +90,27 @@ func TestCache2DiskForPipeline(t *testing.T) {
 
 // test to copy cache files from local build dir to shared storage
 // job directory
+func TestCache2DiskForJobMaxSize(t *testing.T) {
+	src, _ := filepath.Abs("../data/cache/maxsize/2mb")
+	err := Cache2Disk("set", "job", src, false, false, 1)
+	assert.ErrorContains(t, err, " is more than allowed max limit 1MB")
+}
+
+// test to copy cache files from local build dir to shared storage
+// job directory
+func TestCache2DiskForJobMaxSizeFolder(t *testing.T) {
+	src, _ := filepath.Abs("../data/cache/maxsize")
+	err := Cache2Disk("set", "job", src, false, false, 1)
+	assert.ErrorContains(t, err, " is more than allowed max limit 1MB")
+}
+
+// test to copy cache files from local build dir to shared storage
+// job directory
 func TestCache2DiskForJob(t *testing.T) {
 	cache, _ := filepath.Abs(os.Getenv("SD_JOB_CACHE_DIR"))
 	local, _ := filepath.Abs("../data/cache/local")
 
-	assert.Assert(t, Cache2Disk("set", "job", local) == nil)
+	assert.Assert(t, Cache2Disk("set", "job", local, false, false, 0) == nil)
 
 	_, err := os.Stat(filepath.Join(cache, local, "test/test.txt"))
 	assert.Assert(t, err == nil)
@@ -104,17 +120,72 @@ func TestCache2DiskForJob(t *testing.T) {
 }
 
 // test to copy cache files from local build dir to shared storage
+// job directory
+func TestCache2DiskForJobWithCompress(t *testing.T) {
+	cache, _ := filepath.Abs(os.Getenv("SD_JOB_CACHE_DIR"))
+	local, _ := filepath.Abs("../data/cache/local")
+
+	assert.Assert(t, Cache2Disk("set", "job", local, true, false, 0) == nil)
+
+	_, err := os.Stat(filepath.Join(cache, filepath.Dir(local), "local.zip"))
+	assert.Assert(t, err == nil)
+}
+
+// test to cache files from shared storage to local build dir
+// job directory
+func TestCache2DiskForJobGetWithCompress(t *testing.T) {
+	// cache, _ := filepath.Abs(os.Getenv("SD_JOB_CACHE_DIR"))
+	local, _ := filepath.Abs("../data/cache/local")
+	_ = os.RemoveAll("../data/cache/local/test")
+
+	assert.Assert(t, Cache2Disk("get", "job", local, true, false, 0) == nil)
+
+	_, err := os.Stat(filepath.Join(local, "test/test.txt"))
+	assert.Assert(t, err == nil)
+
+	_, err = os.Stat(filepath.Join(local, "local.txt"))
+	assert.Assert(t, err == nil)
+}
+
+// test to cache files from shared storage to local build dir
+// job directory
+func TestCache2DiskForJobGetWithCompressNoFile(t *testing.T) {
+	// cache, _ := filepath.Abs(os.Getenv("SD_JOB_CACHE_DIR"))
+	local, _ := filepath.Abs("../data/cache/local1")
+
+	assert.Assert(t, Cache2Disk("get", "job", local, true, false, 0) == nil)
+}
+
+// test to copy cache files from local build dir to shared storage
 // event directory
 func TestCache2DiskForEvent(t *testing.T) {
 	cache, _ := filepath.Abs(os.Getenv("SD_EVENT_CACHE_DIR"))
 	local, _ := filepath.Abs("../data/cache/local")
 
-	assert.Assert(t, Cache2Disk("set", "event", local) == nil)
+	assert.Assert(t, Cache2Disk("set", "event", local, false, false, 0) == nil)
 
 	_, err := os.Stat(filepath.Join(cache, local, "test/test.txt"))
 	assert.Assert(t, err == nil)
 
 	_, err = os.Stat(filepath.Join(cache, local, "local.txt"))
+	assert.Assert(t, err == nil)
+}
+
+// test to copy cache files from local build dir to shared storage
+// pipeline directory
+func TestCache2DiskForPipelineRerun(t *testing.T) {
+	cache, _ := filepath.Abs(os.Getenv("SD_PIPELINE_CACHE_DIR"))
+	local, _ := filepath.Abs("../data/cache/local")
+
+	assert.Assert(t, Cache2Disk("set", "pipeline", local, false, true, 0) == nil)
+
+	_, err := os.Stat(filepath.Join(cache, local, "test/test.txt"))
+	assert.Assert(t, err == nil)
+
+	_, err = os.Stat(filepath.Join(cache, local, "local.txt"))
+	assert.Assert(t, err == nil)
+
+	_, err = os.Stat(filepath.Join(cache, filepath.Dir(local), "md5.json"))
 	assert.Assert(t, err == nil)
 }
 
@@ -132,7 +203,7 @@ func TestCache2DiskForPipelineToBuild(t *testing.T) {
 	testData := []byte("file from cache")
 	err := ioutil.WriteFile(filepath.Join(cacheDir, "test.txt"), testData, 0777)
 
-	assert.Assert(t, Cache2Disk("get", "pipeline", local) == nil)
+	assert.Assert(t, Cache2Disk("get", "pipeline", local, false, false, 0) == nil)
 
 	_, err = os.Stat(filepath.Join(local, "test/test.txt"))
 	assert.Assert(t, err == nil)
@@ -149,7 +220,7 @@ func TestCache2DiskRemoveCache(t *testing.T) {
 	cache, _ := filepath.Abs(os.Getenv("SD_PIPELINE_CACHE_DIR"))
 	local, _ := filepath.Abs("../data/cache/local")
 
-	assert.Assert(t, Cache2Disk("remove", "pipeline", "../data/cache/local") == nil)
+	assert.Assert(t, Cache2Disk("remove", "pipeline", "../data/cache/local", false, false, 0) == nil)
 
 	_, err := os.Stat(filepath.Join(cache, local))
 	assert.ErrorContains(t, err, "no such file or directory")
@@ -168,7 +239,7 @@ func TestCache2DiskForPipelineWithTilde(t *testing.T) {
 	testData := []byte("file from cache")
 	err := ioutil.WriteFile(filepath.Join(localDir, "test.txt"), testData, 0777)
 
-	assert.Assert(t, Cache2Disk("set", "pipeline", local) == nil)
+	assert.Assert(t, Cache2Disk("set", "pipeline", local, false, false, 0) == nil)
 
 	_, err = os.Stat(filepath.Join(cache, localDir, "test.txt"))
 	assert.Assert(t, err == nil)
@@ -178,7 +249,7 @@ func TestCache2DiskForPipelineWithTilde(t *testing.T) {
 func TestCache2DiskInvalidCacheDirectory(t *testing.T) {
 	cacheDir, _ := filepath.Abs("../data/cache/nodirectory/pipeline")
 	_ = os.Setenv("SD_PIPELINE_CACHE_DIR", cacheDir)
-	err := Cache2Disk("set", "pipeline", "")
+	err := Cache2Disk("set", "pipeline", "", false, false, 0)
 	assert.ErrorContains(t, err, "no such file or directory")
 }
 
