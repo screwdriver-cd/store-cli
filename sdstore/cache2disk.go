@@ -47,7 +47,7 @@ func getDirSizeInBytes(path string) int64 {
 compare md5 for source and destination directories
 param - src         		source directory
 param - dest			destination directory
-return - bytearray / bool   	return md5 byte array, bool - true (same) / false (changed)
+return - bytearray / bool   	return md5 byte array, bool - true (md5 same) / false (md5 changed)
 */
 func checkMd5(src, dest string) ([]byte, bool) {
 	var oldMd5 map[string]string
