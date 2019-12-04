@@ -21,10 +21,10 @@ param - msg			error msg
 return - error / nil		INFO / WARN - nil; ERROR - return error msg
 */
 func writeLog(level, errType string, msg ...interface{}) error {
-	log.Write(level, "cache2disk.go", errType, msg ...)
+	log.Write(level, "cache2disk.go", errType, msg...)
 
 	if level == log.ERROR {
-		return fmt.Errorf(fmt.Sprintf("%v", msg ...))
+		return fmt.Errorf(fmt.Sprintf("%v", msg...))
 	} else {
 		return nil
 	}
@@ -133,7 +133,7 @@ func getCache(src, dest, command string, compress bool) error {
 		}
 	}
 
-	_ = writeLog(log.INFO,"", "get cache")
+	_ = writeLog(log.INFO, "", "get cache")
 	if compress {
 		fmt.Println("zip enabled")
 		srcZipPath := fmt.Sprintf("%s.zip", src)
@@ -153,7 +153,7 @@ func getCache(src, dest, command string, compress bool) error {
 			return writeLog(log.ERROR, log.COPY, err)
 		}
 	}
-	return writeLog(log.INFO,"", "get cache complete")
+	return writeLog(log.INFO, "", "get cache complete")
 }
 
 /*
@@ -173,7 +173,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 	var md5Json []byte
 	var md5Status bool
 
-	_ = writeLog(log.INFO, "","set cache")
+	_ = writeLog(log.INFO, "", "set cache")
 	if _, err = os.Stat(src); err != nil {
 		msg = fmt.Sprintf("%v, source path not found for command %v", err, command)
 		return writeLog(log.ERROR, log.FILE, msg)
@@ -195,18 +195,18 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 		if md5Status {
 			return writeLog(log.WARN, log.FILE, fmt.Sprintf("source %s and destination %s directories are same, aborting", src, dest))
 		}
-		_ = writeLog(log.INFO, "","md5Check complete")
+		_ = writeLog(log.INFO, "", "md5Check complete")
 	}
 	removeCacheDirectory(dest, command)
 
 	if compress {
-		_ = writeLog(log.INFO, "","zip enabled")
+		_ = writeLog(log.INFO, "", "zip enabled")
 		srcZipPath := fmt.Sprintf("%s.zip", src)
 		targetZipPath := fmt.Sprintf("%s.zip", dest)
 
 		err = Zip(src, srcZipPath)
 		if err != nil {
-			msg = fmt.Sprintf( "%v, failed to zip files from %v to %v", err, src, srcZipPath)
+			msg = fmt.Sprintf("%v, failed to zip files from %v to %v", err, src, srcZipPath)
 			return writeLog(log.ERROR, log.ZIP, msg)
 		}
 		_ = os.MkdirAll(filepath.Dir(dest), 0777)
@@ -215,7 +215,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 		}
 		defer os.RemoveAll(srcZipPath)
 	} else {
-		_ = writeLog(log.INFO,"", "zip disabled")
+		_ = writeLog(log.INFO, "", "zip disabled")
 		if err = copy.Copy(src, dest); err != nil {
 			return writeLog(log.ERROR, log.COPY, err)
 		}
