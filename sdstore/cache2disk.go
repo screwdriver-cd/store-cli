@@ -13,6 +13,11 @@ import (
 )
 
 // taken and modified from https://stackoverflow.com/questions/32482673/how-to-get-directory-total-size
+/*
+get directory size recursive in bytes
+param - path         		directory path
+return - size in bytes
+*/
 func getDirSizeInBytes(path string) int64 {
 	sizes := make(chan int64)
 	readSize := func(path string, file os.FileInfo, err error) error {
@@ -38,6 +43,12 @@ func getDirSizeInBytes(path string) int64 {
 	return size
 }
 
+/*
+compare md5 for source and destination directories
+param - src         		source directory
+param - dest			destination directory
+return - bytearray / error   	return md5 byte array, error - md5-same / md-chagned
+*/
 func checkMd5(src, dest string) ([]byte, error) {
 	var oldMd5 map[string]string
 	var newMd5 map[string]string
@@ -63,6 +74,12 @@ func checkMd5(src, dest string) ([]byte, error) {
 	}
 }
 
+/*
+remove cache directory from shared file server
+param - path			cache path
+param -	command			set or remove
+return - nothing
+*/
 func removeCacheDirectory(path, command string) {
 	path = filepath.Dir(path)
 	if err := os.RemoveAll(path); err != nil {
@@ -71,6 +88,14 @@ func removeCacheDirectory(path, command string) {
 	fmt.Printf("command: %v, cache directories %v removed \n", command, path)
 }
 
+/*
+get cache from shared file server to local
+param - src         		source directory
+param - dest			destination directory
+param -	command			get
+param - compress		get compressed cache
+return - nil / error   		success - return nil; error - return error description
+*/
 func getCache(src, dest, command string, compress bool) error {
 	var err error
 
@@ -110,6 +135,16 @@ func getCache(src, dest, command string, compress bool) error {
 	return nil
 }
 
+/*
+store cache in shared file server
+param - src         		source directory
+param - dest			destination directory
+param -	command			set
+param - compress		compress and store cache
+param - md5Check		compare md5 and store cache
+param - cacheMaxSizeInMB	max cache size limit allowed in MB
+return - nil / error   		success - return nil; error - return error description
+*/
 func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
 	var err error
 	var b int
@@ -181,9 +216,12 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 
 /*
 cache directories and files to/from shared storage
-param - command         set, get or remove
-param - cacheScope     	pipeline, event, job
-param -	srcDir     	source directory
+param - command         	set, get or remove
+param - cacheScope     		pipeline, event, job
+param -	srcDir     		source directory
+param - compress		compress and store cache
+param - md5Check		compare md5 and store cache
+param - cacheMaxSizeInMB	max cache size limit allowed in MB
 return - nil / error   success - return nil; error - return error description
 */
 func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
