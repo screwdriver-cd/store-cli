@@ -5,12 +5,30 @@ import (
 	"fmt"
 	"github.com/otiai10/copy"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	log "github.com/screwdriver-cd/store-cli/logger"
 )
+
+/*
+write log
+param - level         		log level
+param - errType
+param - msg			error msg
+return - error / nil		INFO / WARN - nil; ERROR - return error msg
+*/
+func writeLog(level, errType string, msg ...interface{}) error {
+	log.Write(level, "cache2disk.go", errType, msg ...)
+
+	if level == log.ERROR {
+		return fmt.Errorf(fmt.Sprintf("%v", msg ...))
+	} else {
+		return nil
+	}
+}
 
 // taken and modified from https://stackoverflow.com/questions/32482673/how-to-get-directory-total-size
 /*
@@ -50,6 +68,7 @@ param - dest			destination directory
 return - bytearray / bool   	return md5 byte array, bool - true (md5 same) / false (md5 changed)
 */
 func checkMd5(src, dest string) ([]byte, bool) {
+	var msg string
 	var oldMd5 map[string]string
 	var newMd5 map[string]string
 
@@ -58,12 +77,14 @@ func checkMd5(src, dest string) ([]byte, bool) {
 	oldMd5File, err := ioutil.ReadFile(oldMd5FilePath)
 	if err != nil {
 		oldMd5File = []byte("")
-		log.Printf("error: %v, not able to get md5.json from: %v \n", err, filepath.Dir(dest))
+		msg = fmt.Sprintf("error: %v, not able to get md5.json from: %v", err, filepath.Dir(dest))
+		_ = writeLog(log.WARN, log.FILE, msg)
 	}
 	_ = json.Unmarshal(oldMd5File, &oldMd5)
 
 	if newMd5, err = MD5All(src); err != nil {
-		log.Printf("error: %v, not able to generate md5 for directory: %v \n", err, src)
+		msg = fmt.Sprintf("error: %v, not able to generate md5 for directory: %v", err, src)
+		_ = writeLog(log.WARN, log.MD5, msg)
 	}
 	md5Json, _ := json.Marshal(newMd5)
 
@@ -83,9 +104,9 @@ return - nothing
 func removeCacheDirectory(path, command string) {
 	path = filepath.Dir(path)
 	if err := os.RemoveAll(path); err != nil {
-		log.Printf("error: %v, failed to clean out the destination directory: %v \n", err, path)
+		_ = writeLog(log.WARN, log.FILE, fmt.Sprintf("error: %v, failed to clean out the destination directory: %v", err, path))
 	}
-	fmt.Printf("command: %v, cache directories %v removed \n", command, path)
+	_ = writeLog(log.INFO, "", fmt.Sprintf("command: %v, cache directories %v removed", command, path))
 }
 
 /*
@@ -97,42 +118,42 @@ param - compress		get compressed cache
 return - nil / error   		success - return nil; error - return error description
 */
 func getCache(src, dest, command string, compress bool) error {
+	var msg string
 	var err error
 
 	if compress {
 		if _, err = os.Stat(filepath.Dir(src)); err != nil {
-			log.Printf("skipping source path %v not found error for command %v, error: %v \n", src, command, err)
-			return nil
+			msg = fmt.Sprintf("skipping source path %v not found error for command %v, error: %v", src, command, err)
+			return writeLog(log.WARN, log.FILE, msg)
 		}
 	} else {
 		if _, err = os.Stat(src); err != nil {
-			log.Printf("skipping source path %v not found error for command %v, error: %v \n", src, command, err)
-			return nil
+			msg = fmt.Sprintf("skipping source path %v not found error for command %v, error: %v", src, command, err)
+			return writeLog(log.WARN, log.FILE, msg)
 		}
 	}
 
-	fmt.Println("get cache")
+	_ = writeLog(log.INFO,"", "get cache")
 	if compress {
 		fmt.Println("zip enabled")
 		srcZipPath := fmt.Sprintf("%s.zip", src)
 		targetZipPath := fmt.Sprintf("%s.zip", dest)
 		_ = os.MkdirAll(filepath.Dir(dest), 0777)
 		if err = copy.Copy(srcZipPath, targetZipPath); err != nil {
-			return err
+			return writeLog(log.ERROR, log.COPY, err)
 		}
 		_, err = Unzip(targetZipPath, filepath.Dir(dest))
 		if err != nil {
-			log.Printf("Could not unzip file %s: %s", filepath.Dir(src), err)
+			_ = writeLog(log.WARN, log.ZIP, fmt.Sprintf("Could not unzip file %s: %s", filepath.Dir(src), err))
 		}
 		defer os.RemoveAll(targetZipPath)
 	} else {
-		fmt.Println("zip disabled")
+		_ = writeLog(log.INFO, "", "zip disabled")
 		if err = copy.Copy(src, dest); err != nil {
-			return err
+			return writeLog(log.ERROR, log.COPY, err)
 		}
 	}
-	fmt.Println("get cache complete")
-	return nil
+	return writeLog(log.INFO,"", "get cache complete")
 }
 
 /*
@@ -146,70 +167,72 @@ param - cacheMaxSizeInMB	max cache size limit allowed in MB
 return - nil / error   		success - return nil; error - return error description
 */
 func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
+	var msg string
 	var err error
 	var b int
 	var md5Json []byte
 	var md5Status bool
 
-	fmt.Println("set cache")
+	_ = writeLog(log.INFO, "","set cache")
 	if _, err = os.Stat(src); err != nil {
-		return fmt.Errorf("error: %v, source path not found for command %v \n", err, command)
+		msg = fmt.Sprintf("%v, source path not found for command %v", err, command)
+		return writeLog(log.ERROR, log.FILE, msg)
 	}
 
 	if cacheMaxSizeInMB > 0 {
 		sizeInMB := int64(float64(getDirSizeInBytes(src)) * 0.000001)
 		if sizeInMB > cacheMaxSizeInMB {
-			return fmt.Errorf("error, source directory size %vMB is more than allowed max limit %vMB", sizeInMB, cacheMaxSizeInMB)
+			msg = fmt.Sprintf("source directory size %vMB is more than allowed max limit %vMB", sizeInMB, cacheMaxSizeInMB)
+			return writeLog(log.ERROR, log.MAXSIZELIMIT, msg)
 		}
-		fmt.Printf("source directory size %v, allowed max limit %v\n", sizeInMB, cacheMaxSizeInMB)
+		_ = writeLog(log.INFO, "", fmt.Sprintf("source directory size %v, allowed max limit %v", sizeInMB, cacheMaxSizeInMB))
 	}
 
-	fmt.Printf("md5Check %v\n", md5Check)
+	_ = writeLog(log.INFO, "", fmt.Sprintf("md5Check %v", md5Check))
 	if md5Check {
-		fmt.Println("starting md5Check")
+		_ = writeLog(log.INFO, "", "starting md5Check")
 		md5Json, md5Status = checkMd5(src, dest)
 		if md5Status {
-			log.Printf("source %s and destination %s directories are same, aborting \n", src, dest)
-			return nil
+			return writeLog(log.WARN, log.FILE, fmt.Sprintf("source %s and destination %s directories are same, aborting", src, dest))
 		}
-		fmt.Println("md5Check complete")
+		_ = writeLog(log.INFO, "","md5Check complete")
 	}
 	removeCacheDirectory(dest, command)
 
 	if compress {
-		fmt.Println("zip enabled")
+		_ = writeLog(log.INFO, "","zip enabled")
 		srcZipPath := fmt.Sprintf("%s.zip", src)
 		targetZipPath := fmt.Sprintf("%s.zip", dest)
 
 		err = Zip(src, srcZipPath)
 		if err != nil {
-			fmt.Printf("failed to zip files from %v to %v \n", src, srcZipPath)
-			return fmt.Errorf("error %v\n", err)
+			msg = fmt.Sprintf( "%v, failed to zip files from %v to %v", err, src, srcZipPath)
+			return writeLog(log.ERROR, log.ZIP, msg)
 		}
 		_ = os.MkdirAll(filepath.Dir(dest), 0777)
 		if err = copy.Copy(srcZipPath, targetZipPath); err != nil {
-			return err
+			return writeLog(log.ERROR, log.COPY, err)
 		}
 		defer os.RemoveAll(srcZipPath)
 	} else {
-		fmt.Println("zip disabled")
+		_ = writeLog(log.INFO,"", "zip disabled")
 		if err = copy.Copy(src, dest); err != nil {
-			return err
+			return writeLog(log.ERROR, log.COPY, err)
 		}
 	}
-	fmt.Println("set cache complete")
+	_ = writeLog(log.INFO, "", "set cache complete")
 	if md5Check {
 		md5Path := filepath.Join(filepath.Dir(dest), "md5.json")
 		jsonFile, err := os.Create(md5Path)
 		if err != nil {
-			log.Printf("error: %v, not able to create %v md5.json file", err, dest)
+			_ = writeLog(log.WARN, log.MD5, fmt.Sprintf("error: %v, not able to create %v md5.json file", err, dest))
 		}
 		defer jsonFile.Close()
 		if b, err = jsonFile.Write(md5Json); err != nil {
-			log.Printf("error %v writing md5.json file to destination %v \n", err, dest)
+			_ = writeLog(log.WARN, log.MD5, fmt.Sprintf("error %v writing md5.json file to destination %v", err, dest))
 		} else {
 			_ = jsonFile.Sync()
-			fmt.Printf("wrote %d bytes of md5.json file to destination %v \n", b, dest)
+			_ = writeLog(log.INFO, "", fmt.Sprintf("wrote %d bytes of md5.json file to destination %v", b, dest))
 		}
 	}
 	return nil
@@ -226,6 +249,7 @@ param - cacheMaxSizeInMB	max cache size limit allowed in MB
 return - nil / error   success - return nil; error - return error description
 */
 func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
+	var msg string
 	var err error
 
 	homeDir, _ := os.UserHomeDir()
@@ -234,11 +258,13 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 	cacheScope = strings.ToLower(strings.TrimSpace(cacheScope))
 
 	if command != "set" && command != "get" && command != "remove" {
-		return fmt.Errorf("error: %v, command: %v is not expected", err, command)
+		msg = fmt.Sprintf("%v, command: %v is not expected", err, command)
+		return writeLog(log.ERROR, log.COMMAND, msg)
 	}
 
 	if cacheScope == "" {
-		return fmt.Errorf("error: %v, cache scope %v empty", err, cacheScope)
+		msg = fmt.Sprintf("%v, cache scope %v empty", err, cacheScope)
+		return writeLog(log.ERROR, log.SCOPE, msg)
 	}
 
 	switch cacheScope {
@@ -259,15 +285,18 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 	}
 
 	if srcDir, err = filepath.Abs(srcDir); err != nil {
-		return fmt.Errorf("error: %v in src path %v, command: %v", err, srcDir, command)
+		msg = fmt.Sprintf("%v in src path %v, command: %v", err, srcDir, command)
+		return writeLog(log.ERROR, log.FILE, msg)
 	}
 
 	if baseCacheDir, err = filepath.Abs(baseCacheDir); err != nil {
-		return fmt.Errorf("error: %v in path %v, command: %v", err, baseCacheDir, command)
+		msg = fmt.Sprintf("%v in path %v, command: %v", err, baseCacheDir, command)
+		return writeLog(log.ERROR, log.FILE, msg)
 	}
 
 	if _, err := os.Stat(baseCacheDir); err != nil {
-		return fmt.Errorf("error: %v, cache path %v not found", err, baseCacheDir)
+		msg = fmt.Sprintf("%v, cache path %s not found", err, baseCacheDir)
+		return writeLog(log.ERROR, log.FILE, msg)
 	}
 
 	cacheDir := filepath.Join(baseCacheDir, srcDir)
@@ -277,13 +306,13 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 	switch command {
 	case "set":
 		if err = setCache(src, dest, command, compress, md5Check, cacheMaxSizeInMB); err != nil {
-			return err
+			return writeLog(log.ERROR, "", fmt.Sprintf("error %v in set cache", err))
 		}
 	case "get":
 		src = cacheDir
 		dest = srcDir
 		if err = getCache(src, dest, command, compress); err != nil {
-			log.Printf("error %v in get cache \n", err)
+			_ = writeLog(log.WARN, "", fmt.Sprintf("error %v in get cache", err))
 		}
 	case "remove":
 		removeCacheDirectory(dest, command)

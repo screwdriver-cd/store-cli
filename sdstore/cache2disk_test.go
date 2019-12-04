@@ -46,13 +46,13 @@ func TestCache2DiskInit(t *testing.T) {
 // test to validate invalid command
 func TestCache2DiskInvalidCommand(t *testing.T) {
 	err := Cache2Disk("", "pipeline", "", false, false, 0)
-	assert.ErrorContains(t, err, "error: <nil>, command:  is not expected")
+	assert.ErrorContains(t, err, "command:  is not expected")
 }
 
 // test to validate invalid cache scope
 func TestCache2DiskInvalidCacheScope(t *testing.T) {
 	err := Cache2Disk("set", "   ", "", false, false, 0)
-	assert.ErrorContains(t, err, "error: <nil>, cache scope  empty")
+	assert.ErrorContains(t, err, "cache scope  empty")
 }
 
 // test to validate invalid src and cache path for set
