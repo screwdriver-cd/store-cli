@@ -8,7 +8,7 @@ jobs:
         requires: [~commit, ~pr]
         steps:
             - vet: go vet ./...
-            - gofmt: ret=$(find . -name '*.go' | xargs gofmt -d) && echo $ret && test -z $ret
+            - gofmt: ret=$(find . -name '*.go' | xargs gofmt -d) && echo "$ret" && test -z "$ret"
             - test: go test ./...
             - build: go build -a -o store-cli
             - test-release: "curl -sL https://git.io/goreleaser | bash -s -- --snapshot"
@@ -17,7 +17,7 @@ jobs:
         requires: main
         steps:
             - setup-ci: git clone https://github.com/screwdriver-cd/toolbox.git ci
-            - gofmt: ret=$(find . -name '*.go' | xargs gofmt -d) && echo $ret && test -z $ret
+            - gofmt: ret=$(find . -name '*.go' | xargs gofmt -d) && echo "$ret" && test -z "$ret"
             - tag: ./ci/git-tag.sh
             - release: |
                 curl -sL https://git.io/goreleaser | bash
