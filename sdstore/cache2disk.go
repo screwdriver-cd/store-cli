@@ -184,12 +184,12 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 			msg = fmt.Sprintf("source directory size %vMB is more than allowed max limit %vMB", sizeInMB, cacheMaxSizeInMB)
 			return writeLog(logger.ERROR, logger.MAXSIZELIMIT, msg)
 		}
-		_ = writeLog(logger.INFO, "", fmt.Sprintf("source directory size %v, allowed max limit %v", sizeInMB, cacheMaxSizeInMB))
+		_ = writeLog(logger.INFO, "", fmt.Sprintf("source directory size %vMB, allowed max limit %vMB", sizeInMB, cacheMaxSizeInMB))
 	}
 
 	_ = writeLog(logger.INFO, "", fmt.Sprintf("md5Check %v", md5Check))
 	if md5Check {
-		_ = writeLog(logger.INFO, "", "starting md5Check")
+		_ = writeLog(logger.INFO,"", "starting md5Check")
 		md5Json, md5Status = checkMd5(src, dest)
 		if md5Status {
 			return writeLog(logger.WARN, logger.FILE, fmt.Sprintf("source %s and destination %s directories are same, aborting", src, dest))
