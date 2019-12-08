@@ -189,7 +189,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 
 	_ = writeLog(logger.INFO, "", fmt.Sprintf("md5Check %v", md5Check))
 	if md5Check {
-		_ = writeLog(logger.INFO,"", "starting md5Check")
+		_ = writeLog(logger.INFO, "", "starting md5Check")
 		md5Json, md5Status = checkMd5(src, dest)
 		if md5Status {
 			return writeLog(logger.WARN, logger.FILE, fmt.Sprintf("source %s and destination %s directories are same, aborting", src, dest))
