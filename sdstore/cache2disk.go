@@ -184,7 +184,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 			msg = fmt.Sprintf("source directory size %vMB is more than allowed max limit %vMB", sizeInMB, cacheMaxSizeInMB)
 			return writeLog(logger.ERROR, logger.MAXSIZELIMIT, msg)
 		}
-		_ = writeLog(logger.INFO, "", fmt.Sprintf("source directory size %v, allowed max limit %v", sizeInMB, cacheMaxSizeInMB))
+		_ = writeLog(logger.INFO, "", fmt.Sprintf("source directory size %vMB, allowed max limit %vMB", sizeInMB, cacheMaxSizeInMB))
 	}
 
 	_ = writeLog(logger.INFO, "", fmt.Sprintf("md5Check %v", md5Check))
