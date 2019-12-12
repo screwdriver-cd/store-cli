@@ -39,7 +39,7 @@ func failureExit(err error) {
 func finalRecover() {
 	if p := recover(); p != nil {
 		fmt.Fprintln(os.Stderr, "ERROR: Something terrible has happened. Please file a ticket with this info:")
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n%v\n", p, debug.Stack())
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n%s\n", p, string(debug.Stack()))
 		failureExit(nil)
 	}
 	successExit()
