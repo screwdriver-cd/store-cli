@@ -354,7 +354,9 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error 
 		fsize := stat.Size()
 
 		res, err := s.put(url, bodyType, input, fsize)
-		defer res.Body.Close()
+		if res != nil {
+			defer res.Body.Close()
+		}
 
 		retry, err := s.checkForRetry(res, err)
 
