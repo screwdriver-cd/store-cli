@@ -74,10 +74,9 @@ param - destBase		last element of destination directory
 return - bytearray / bool   	return md5 byte array, bool - true (md5 same) / false (md5 changed)
 */
 func checkMd5(src, dest, destBase string) ([]byte, bool) {
-	var msg string
+	var msg, oldMd5FilePath string
 	var oldMd5 map[string]string
 	var newMd5 map[string]string
-	var oldMd5FilePath string
 
 	_ = writeLog(logger.INFO, "", "start md5 check")
 	oldMd5FilePath = filepath.Join(dest, fmt.Sprintf("%s%s", destBase, ".md5"))
@@ -134,8 +133,7 @@ param - compress		get compressed cache
 return - nil / error   		success - return nil; error - return error description
 */
 func getCache(src, dest, command string, compress bool) error {
-	var msg string
-	var srcZipPath string
+	var msg, srcZipPath string
 
 	_ = writeLog(logger.INFO, "", "get cache")
 	info, err := os.Lstat(src)
