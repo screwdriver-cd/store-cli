@@ -138,7 +138,7 @@ func getCache(src, dest, command string, compress bool) error {
 	var srcZipPath string
 
 	_ = writeLog(logger.INFO, "", "get cache")
-	info, err := os.Lstat(src);
+	info, err := os.Lstat(src)
 	if err != nil {
 		msg = fmt.Sprintf("directory [%v] check failed, do file check %v", src, command)
 		writeLog(logger.WARN, logger.FILE, msg)
@@ -201,7 +201,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 	var md5Json []byte
 
 	fmt.Println("set cache")
-	info, err := os.Lstat(src);
+	info, err := os.Lstat(src)
 	if err != nil {
 		msg = fmt.Sprintf("%v, source path not found for command %v", err, command)
 		return writeLog(logger.ERROR, logger.FILE, msg)
