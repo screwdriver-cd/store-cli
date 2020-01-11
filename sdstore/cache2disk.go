@@ -155,8 +155,10 @@ func getCache(src, dest, command string, compress bool) error {
 
 		if info.IsDir() {
 			srcZipPath = fmt.Sprintf("%s.zip", filepath.Join(src, filepath.Base(src)))
+			_ = os.MkdirAll(dest, 0777)
 		} else {
 			srcZipPath = fmt.Sprintf("%s.zip", filepath.Join(filepath.Dir(src), filepath.Base(src)))
+			_ = os.MkdirAll(filepath.Dir(dest), 0777)
 		}
 
 		targetZipPath := fmt.Sprintf("%s.zip", dest)
