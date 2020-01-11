@@ -12,7 +12,6 @@ import (
 	"time"
 )
 
-
 // test to validate invalid command
 func TestCache2DiskInvalidCommand(t *testing.T) {
 	err := Cache2Disk("", "pipeline", "", false, false, 0)
@@ -110,7 +109,7 @@ func Test_SetCache_wCompress_RewriteFile_NODELTA(t *testing.T) {
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline", "job:SD_JOB_CACHE_DIR:../data/cache/job", "event:SD_EVENT_CACHE_DIR:../data/cache/event"}
 	localCacheFolders := []string{"../data/cache/.m2/testfolder1/testfolder1.txt", "../data/cache/maxsize/2mb"}
 
-	time.Sleep(2 * time.Second)	// pause test for 2 seconds
+	time.Sleep(2 * time.Second) // pause test for 2 seconds
 	currentTime := time.Now().Unix()
 	fmt.Println(currentTime)
 
@@ -225,7 +224,7 @@ func Test_SetCache_RewriteFile_NODELTA(t *testing.T) {
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline", "job:SD_JOB_CACHE_DIR:../data/cache/job", "event:SD_EVENT_CACHE_DIR:../data/cache/event"}
 	localCacheFolders := []string{"../data/cache/.m2/testfolder1/testfolder1.txt", "../data/cache/maxsize/2mb"}
 
-	time.Sleep(2 * time.Second)	// pause test for 2 seconds
+	time.Sleep(2 * time.Second) // pause test for 2 seconds
 	currentTime := time.Now().Unix()
 	fmt.Println(currentTime)
 
@@ -425,7 +424,7 @@ func Test_SetCache_wCompress_RewriteFolder_NODELTA(t *testing.T) {
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline", "job:SD_JOB_CACHE_DIR:../data/cache/job", "event:SD_EVENT_CACHE_DIR:../data/cache/event"}
 	localCacheFolders := []string{"../data/cache/.m2/testfolder1", "../data/cache/.m2/testfolder2"}
 
-	time.Sleep(2 * time.Second)	// pause test for 2 seconds
+	time.Sleep(2 * time.Second) // pause test for 2 seconds
 	currentTime := time.Now().Unix()
 	fmt.Println(currentTime)
 
@@ -578,7 +577,7 @@ func Test_SetCache_RewriteFolder_NODELTA(t *testing.T) {
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline", "job:SD_JOB_CACHE_DIR:../data/cache/job", "event:SD_EVENT_CACHE_DIR:../data/cache/event"}
 	localCacheFolders := []string{"../data/cache/.m2/testfolder1", "../data/cache/.m2/testfolder2"}
 
-	time.Sleep(2 * time.Second)	// pause test for 2 seconds
+	time.Sleep(2 * time.Second) // pause test for 2 seconds
 	currentTime := time.Now().Unix()
 	fmt.Println(currentTime)
 
