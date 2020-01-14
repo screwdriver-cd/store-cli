@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-
+	"runtime/debug"
 	"github.com/screwdriver-cd/store-cli/logger"
 )
 
@@ -335,6 +335,7 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 		return writeLog(logger.ERROR, logger.FILE, msg)
 	}
 
+	debug.SetMaxThreads(20000) //safety net for program exceeds 10000-thread limit
 	cacheDir := filepath.Join(baseCacheDir, srcDir)
 	src := srcDir
 	dest := cacheDir
