@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/otiai10/copy"
+	"github.com/screwdriver-cd/store-cli/logger"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"runtime/debug"
-	"github.com/screwdriver-cd/store-cli/logger"
+	"strings"	
 )
 
 /*
