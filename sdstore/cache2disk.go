@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime/debug"
 	"strings"
 )
 
@@ -88,6 +87,11 @@ func checkMd5(src, dest, destBase string) ([]byte, bool) {
 	}
 	_ = json.Unmarshal(oldMd5File, &oldMd5)
 
+	if newMd5, err = GenerateMd5(src); err != nil {
+		msg = fmt.Sprintf("not able to generate md5 for directory: %v", src)
+		_ = writeLog(logger.WARN, logger.MD5, msg)
+	}
+
 	if newMd5, err = MD5All(src); err != nil {
 		msg = fmt.Sprintf("not able to generate md5 for directory: %v", src)
 		_ = writeLog(logger.WARN, logger.MD5, msg)
@@ -108,7 +112,7 @@ param - md5Path			md5 path
 param -	command			set or remove
 return - nothing
 */
-func removeCacheDirectory(path, md5Path, command string) {
+func removeCacheDirectory(path, md5Path string) {
 	_, err := os.Lstat(path)
 
 	if err != nil {
@@ -139,11 +143,11 @@ func getCache(src, dest, command string, compress bool) error {
 	info, err := os.Lstat(src)
 	if err != nil {
 		msg = fmt.Sprintf("directory [%v] check failed, do file check %v", src, command)
-		writeLog(logger.WARN, logger.FILE, msg)
+		_ = writeLog(logger.WARN, logger.FILE, msg)
 	}
 
 	if compress {
-		writeLog(logger.INFO, "zip enabled")
+		_ = writeLog(logger.INFO, "zip enabled")
 
 		if err != nil {
 			info, err = os.Lstat(fmt.Sprintf("%s%s", src, ".zip"))
@@ -230,7 +234,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 		}
 		_ = writeLog(logger.INFO, "", "md5Check complete")
 	}
-	removeCacheDirectory(dest, filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".md5")), command)
+	removeCacheDirectory(dest, filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".md5")))
 
 	if compress {
 		_ = writeLog(logger.INFO, "", "zip enabled")
@@ -262,13 +266,14 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 		jsonFile, err := os.Create(md5Path)
 		if err != nil {
 			_ = writeLog(logger.WARN, logger.MD5, fmt.Sprintf("not able to create %v file", md5Path))
-		}
-		defer jsonFile.Close()
-		if b, err = jsonFile.Write(md5Json); err != nil {
-			_ = writeLog(logger.WARN, logger.MD5, fmt.Sprintf("failed to write %v.md5 file to destination %v", destBase, destPath))
 		} else {
-			_ = jsonFile.Sync()
-			_ = writeLog(logger.INFO, "", fmt.Sprintf("wrote %d bytes of %v.md5 file to destination %v", b, destBase, destPath))
+			defer jsonFile.Close()
+			if b, err = jsonFile.Write(md5Json); err != nil {
+				_ = writeLog(logger.WARN, logger.MD5, fmt.Sprintf("failed to write %v.md5 file to destination %v", destBase, destPath))
+			} else {
+				_ = jsonFile.Sync()
+				_ = writeLog(logger.INFO, "", fmt.Sprintf("wrote %d bytes of %v.md5 file to destination %v", b, destBase, destPath))
+			}
 		}
 	}
 	return nil
@@ -335,7 +340,6 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 		return writeLog(logger.ERROR, logger.FILE, msg)
 	}
 
-	debug.SetMaxThreads(20000) //safety net for program exceeds 10000-thread limit
 	cacheDir := filepath.Join(baseCacheDir, srcDir)
 	src := srcDir
 	dest := cacheDir
@@ -366,7 +370,7 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 				destBase = filepath.Base(dest)
 			}
 
-			removeCacheDirectory(dest, filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".md5")), command)
+			removeCacheDirectory(dest, filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".md5")))
 		}
 		fmt.Println("remove cache complete")
 	}

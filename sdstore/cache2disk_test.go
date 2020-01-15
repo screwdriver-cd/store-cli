@@ -58,8 +58,8 @@ func Test_SetCache_wCompress_File_CherryPick(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -86,8 +86,8 @@ func Test_SetCache_wCompress_File(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -153,7 +153,7 @@ func Test_GetCache_wCompress_File(t *testing.T) {
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
 			local, _ := filepath.Abs(eachFolder)
-			os.RemoveAll(local)
+			_ = os.RemoveAll(local)
 
 			// compress: true
 			assert.Assert(t, Cache2Disk("get", cache[0], local, true, true, 0) == nil)
@@ -173,8 +173,8 @@ func Test_SetCache_File_CherryPick(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -201,8 +201,8 @@ func Test_SetCache_File(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -233,7 +233,7 @@ func Test_SetCache_RewriteFile_NODELTA(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -262,8 +262,8 @@ func Test_SetCache_File_NoMD5Check(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -297,7 +297,7 @@ func Test_GetCache_File(t *testing.T) {
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
 			local, _ := filepath.Abs(eachFolder)
-			os.RemoveAll(local)
+			_ = os.RemoveAll(local)
 
 			// compress: true
 			assert.Assert(t, Cache2Disk("get", cache[0], local, false, true, 0) == nil)
@@ -343,8 +343,8 @@ func Test_SetCache_wCompress_NewFolder_CherryPick(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -378,7 +378,7 @@ func Test_GetCache_wCompress_Folder_CherryPick(t *testing.T) {
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
 			local, _ := filepath.Abs(eachFolder)
-			os.RemoveAll(local)
+			_ = os.RemoveAll(local)
 
 			// compress: true
 			assert.Assert(t, Cache2Disk("get", cache[0], local, true, true, 0) == nil)
@@ -401,8 +401,8 @@ func Test_SetCache_wCompress_NewFolder(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -467,7 +467,7 @@ func Test_GetCache_wCompress_Folder(t *testing.T) {
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
 			local, _ := filepath.Abs(eachFolder)
-			os.RemoveAll(local)
+			_ = os.RemoveAll(local)
 
 			// compress: true
 			assert.Assert(t, Cache2Disk("get", cache[0], local, true, true, 0) == nil)
@@ -512,7 +512,7 @@ func Test_GetCache_wCompress_Folder_doNOTOverwriteNewFilesInLocal(t *testing.T) 
 			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", "donotoverwrite", ".txt")))
 			assert.Assert(t, err == nil)
 
-			os.RemoveAll(filepath.Join(local, "donotoverwrite.txt"))
+			_ = os.RemoveAll(filepath.Join(local, "donotoverwrite.txt"))
 		}
 	}
 }
@@ -552,8 +552,8 @@ func Test_SetCache_NewFolder(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -613,8 +613,8 @@ func Test_SetCache_NewFolder_NoMD5Check(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -645,7 +645,7 @@ func Test_GetCache_Folder(t *testing.T) {
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
 			local, _ := filepath.Abs(eachFolder)
-			os.RemoveAll(local)
+			_ = os.RemoveAll(local)
 
 			// compress: true
 			assert.Assert(t, Cache2Disk("get", cache[0], local, false, true, 0) == nil)
@@ -687,7 +687,7 @@ func Test_GetCache_Folder_doNOTOverwriteNewFilesInLocal(t *testing.T) {
 			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", "donotoverwrite", ".txt")))
 			assert.Assert(t, err == nil)
 
-			os.RemoveAll(filepath.Join(local, "donotoverwrite.txt"))
+			_ = os.RemoveAll(filepath.Join(local, "donotoverwrite.txt"))
 		}
 	}
 }
@@ -728,15 +728,15 @@ func Test_SetCache_NewFolder_wCompress_wTilde(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for index, eachFolder := range tildeCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
 			home, _ := os.UserHomeDir()
 			local := filepath.Join(home, strings.ReplaceAll(eachFolder, "~", ""))
 			actualLocal, _ := filepath.Abs(localCacheFolders[index])
-			copy2.Copy(actualLocal, local)
+			_ = copy2.Copy(actualLocal, local)
 			fmt.Printf("local tilde folder is [%s]", local)
 
 			// compress: false
@@ -761,15 +761,15 @@ func Test_SetCache_NewFolder_wTilde(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for index, eachFolder := range tildeCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
 			home, _ := os.UserHomeDir()
 			local := filepath.Join(home, strings.ReplaceAll(eachFolder, "~", ""))
 			actualLocal, _ := filepath.Abs(localCacheFolders[index])
-			copy2.Copy(actualLocal, local)
+			_ = copy2.Copy(actualLocal, local)
 			fmt.Printf("local tilde folder is [%s]", local)
 
 			// compress: false
@@ -793,8 +793,8 @@ func Test_SetCache_wCompress_MaxSizeError(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -816,8 +816,8 @@ func Test_SetCache_MaxSizeError(t *testing.T) {
 		_ = os.Setenv(cache[1], cache[2])
 		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		os.RemoveAll(cacheDir)
-		os.MkdirAll(cacheDir, 0777)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
 
 		for _, eachFolder := range localCacheFolders {
 			fmt.Printf("local cache folder is [%s]\n", eachFolder)
@@ -836,6 +836,6 @@ func Test_RemoveCache_Folders(t *testing.T) {
 	for _, eachCacheScope := range cacheScope {
 		cache := strings.Split(eachCacheScope, ":")
 		cacheDir, _ := filepath.Abs(cache[2])
-		defer os.RemoveAll(cacheDir)
+		_ = os.RemoveAll(cacheDir)
 	}
 }
