@@ -15,6 +15,7 @@ import (
 	"sync"
 )
 
+// md5Hash struct with file, md5, total bytes, error
 type md5Hash struct {
 	file string
 	sum  string
@@ -29,6 +30,7 @@ type result struct {
 	err  error
 }
 
+// get md5Hash for given file
 func getMd5Hash(filePath string) (string, int64, error) {
 	var md5str string
 
@@ -48,6 +50,11 @@ func getMd5Hash(filePath string) (string, int64, error) {
 	return md5str, b, err
 }
 
+/*
+Get all files for given path
+param - path			file or folder path
+return - []string / error	success - return array of filepath; error - return error description
+ */
 func getAllFiles(path string) ([]string, error) {
 	var s []string
 	err := godirwalk.Walk(path, &godirwalk.Options{
@@ -166,12 +173,18 @@ func MD5All(root string) (map[string]string, error) {
 	return m, nil
 }
 
+/*
+GenerateMd5 reads files for given path, generates Md5 and returns ms5map or error
+param - path		file or folder path
+return - md5map / error	success - return md5map; error - return error description
+*/
 func GenerateMd5(path string) (map[string]string, error) {
 	var wg sync.WaitGroup
 
 	const MaxConcurrencyLimit = 10000
 	md5Map := make(map[string]string)
 	md5Channel := make(chan md5Hash)
+	defer close(md5Channel)
 
 	files, err := getAllFiles(path)
 	if err != nil {
