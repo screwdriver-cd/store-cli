@@ -54,7 +54,7 @@ func getMd5Hash(filePath string) (string, int64, error) {
 Get all files for given path
 param - path			file or folder path
 return - []string / error	success - return array of filepath; error - return error description
- */
+*/
 func getAllFiles(path string) ([]string, error) {
 	var s []string
 	err := godirwalk.Walk(path, &godirwalk.Options{
