@@ -91,11 +91,6 @@ func checkMd5(src, dest, destBase string) ([]byte, bool) {
 		msg = fmt.Sprintf("not able to generate md5 for directory: %v", src)
 		_ = writeLog(logger.WARN, logger.MD5, msg)
 	}
-
-	if newMd5, err = MD5All(src); err != nil {
-		msg = fmt.Sprintf("not able to generate md5 for directory: %v", src)
-		_ = writeLog(logger.WARN, logger.MD5, msg)
-	}
 	md5Json, _ := json.Marshal(newMd5)
 
 	if reflect.DeepEqual(oldMd5, newMd5) {
