@@ -2,6 +2,7 @@ package sdstore
 
 import (
 	"archive/zip"
+	"compress/flate"
 	"fmt"
 	"io"
 	"log"
@@ -43,14 +44,18 @@ var compressedFormats = map[string]struct{}{
 // Zip is repurposed from https://github.com/mholt/archiver/pull/92/files
 // To include support for symbolic links
 func Zip(source, target string) error {
-	zipfile, err := os.Create(target)
+	zipFile, err := os.Create(target)
 	if err != nil {
 		return err
 	}
-	defer zipfile.Close()
+	defer zipFile.Close()
 
-	w := zip.NewWriter(zipfile)
+	w := zip.NewWriter(zipFile)
 	defer w.Close()
+
+	w.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		return flate.NewWriter(out, flate.BestSpeed)
+	})
 
 	sourceInfo, err := os.Stat(source)
 	if err != nil {
