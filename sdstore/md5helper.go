@@ -181,7 +181,7 @@ return - md5map / error	success - return md5map; error - return error descriptio
 func GenerateMd5(path string) (map[string]string, error) {
 	var wg sync.WaitGroup
 
-	const MaxConcurrencyLimit = 10000
+	const MaxConcurrencyLimit = 3000
 	md5Map := make(map[string]string)
 	md5Channel := make(chan md5Hash)
 	defer close(md5Channel)
