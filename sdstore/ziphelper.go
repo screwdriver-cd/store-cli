@@ -174,10 +174,10 @@ func Unzip(src string, dest string) ([]string, error) {
 
 			// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
 			if dest != "/" && !strings.HasPrefix(fPath, filepath.Clean(dest)+string(os.PathSeparator)) {
-				msg := fmt.Sprintf("%s: illegal file path", fPath)
+				msg := fmt.Errorf("%s: illegal file path", fPath)
 				logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
 
-				return fPath, fTime, fmt.Errorf("%s: illegal file path", fPath)
+				return fPath, fTime, msg
 			}
 
 			if file.FileInfo().IsDir() {
