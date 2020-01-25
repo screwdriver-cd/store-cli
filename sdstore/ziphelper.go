@@ -4,13 +4,14 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/screwdriver-cd/store-cli/logger"
 )
 
 var compressedFormats = map[string]struct{}{
@@ -40,12 +41,14 @@ var compressedFormats = map[string]struct{}{
 	".zipx": {},
 }
 
+const ZiphelperModule = "ziphelper"
+
 // Zip is repurposed from https://github.com/mholt/archiver/pull/92/files
 // To include support for symbolic links
 func Zip(source, target string) error {
 	zipfile, err := os.Create(target)
 	if err != nil {
-		return err
+		return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
 	}
 	defer zipfile.Close()
 
@@ -54,7 +57,8 @@ func Zip(source, target string) error {
 
 	sourceInfo, err := os.Stat(source)
 	if err != nil {
-		return fmt.Errorf("%s: stat: %v", source, err)
+		msg := fmt.Sprintf("%s: stat: %v", source, err)
+		return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
 	}
 
 	var baseDir string
@@ -64,18 +68,20 @@ func Zip(source, target string) error {
 
 	return filepath.Walk(source, func(fpath string, info os.FileInfo, err error) error {
 		if err != nil {
-			return fmt.Errorf("walking to %s: %v", fpath, err)
+			msg := fmt.Sprintf("walking to %s: %v", fpath, err)
+			return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, logger.ERRTYPE_FILE, msg)
 		}
 
 		header, err := zip.FileInfoHeader(info)
 		if err != nil {
-			return fmt.Errorf("%s: getting header: %v", fpath, err)
+			msg := fmt.Sprintf("%s: getting header: %v", fpath, err)
+			return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
 		}
 
 		if baseDir != "" {
 			name, err := filepath.Rel(source, fpath)
 			if err != nil {
-				return err
+				return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
 			}
 			header.Name = path.Join(baseDir, filepath.ToSlash(name))
 		}
@@ -94,7 +100,8 @@ func Zip(source, target string) error {
 
 		writer, err := w.CreateHeader(header)
 		if err != nil {
-			return fmt.Errorf("%s: making header: %v", fpath, err)
+			msg := fmt.Sprintf("%s: making header: %v", fpath, err)
+			return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
 		}
 
 		if info.IsDir() {
@@ -104,11 +111,13 @@ func Zip(source, target string) error {
 		if (header.Mode() & os.ModeSymlink) != 0 {
 			linkTarget, err := os.Readlink(fpath)
 			if err != nil {
-				return fmt.Errorf("%s: readlink: %v", fpath, err)
+				msg := fmt.Sprintf("%s: readlink: %v", fpath, err)
+				return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
 			}
 			_, err = writer.Write([]byte(filepath.ToSlash(linkTarget)))
 			if err != nil {
-				return fmt.Errorf("%s: writing symlink target: %v", fpath, err)
+				msg := fmt.Sprintf("%s: writing symlink target: %v", fpath, err)
+				return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
 			}
 			return nil
 		}
@@ -116,13 +125,15 @@ func Zip(source, target string) error {
 		if header.Mode().IsRegular() {
 			file, err := os.Open(fpath)
 			if err != nil {
-				return fmt.Errorf("%s: opening: %v", fpath, err)
+				msg := fmt.Sprintf("%s: opening: %v", fpath, err)
+				return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
 			}
 			defer file.Close()
 
 			_, err = io.CopyN(writer, file, info.Size())
 			if err != nil && err != io.EOF {
-				return fmt.Errorf("%s: copying contents: %v", fpath, err)
+				msg := fmt.Sprintf("%s: copying contents: %v", fpath, err)
+				return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
 			}
 		}
 
@@ -133,94 +144,101 @@ func Zip(source, target string) error {
 // Unzip is repurposed from https://github.com/mholt/archiver/pull/92/files
 // To include support for symbolic links
 func Unzip(src string, dest string) ([]string, error) {
-	var filenames []string
-
-	r, err := zip.OpenReader(src)
-	if err != nil {
-		return filenames, err
-	}
-	defer r.Close()
-
+	var files []string
 	type fileTime struct {
 		path    string
 		modtime time.Time
 	}
+	var filesTime []fileTime
 
-	var fileTimes []fileTime
+	zr, err := zip.OpenReader(src)
+	if err != nil {
+		logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
+		return files, err
+	}
+	defer zr.Close()
 
-	for _, f := range r.File {
+	for _, file := range zr.File {
+		fPath, fTime, err := func(file *zip.File) (string, fileTime, error) {
+			var fPath string
+			var fTime fileTime
 
-		rc, err := f.Open()
+			rc, err := file.Open()
+			if err != nil {
+				logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
+				return fPath, fTime, err
+			}
+			defer rc.Close()
+
+			fPath = filepath.Join(dest, file.Name)
+
+			// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
+			if dest != "/" && !strings.HasPrefix(fPath, filepath.Clean(dest)+string(os.PathSeparator)) {
+				msg := fmt.Sprintf("%s: illegal file path", fPath)
+				logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
+
+				return fPath, fTime, fmt.Errorf("%s: illegal file path", fPath)
+			}
+
+			if file.FileInfo().IsDir() {
+				os.MkdirAll(fPath, os.ModePerm)
+				fTime = fileTime{fPath, file.Modified}
+			} else if (file.FileInfo().Mode() & os.ModeSymlink) != 0 {
+				buffer := make([]byte, file.FileInfo().Size())
+				size, err := rc.Read(buffer)
+				if err != nil && err != io.EOF {
+					logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
+					return fPath, fTime, err
+				}
+				target := string(buffer[:size])
+				err = os.Symlink(target, fPath)
+				if err != nil {
+					logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
+					return fPath, fTime, err
+				}
+			} else {
+				if err = os.MkdirAll(filepath.Dir(fPath), os.ModePerm); err != nil {
+					logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
+					return fPath, fTime, err
+				}
+
+				outFile, err := os.OpenFile(fPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+				if err != nil {
+					logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
+					return fPath, fTime, err
+				}
+				defer outFile.Close()
+
+				_, err = io.Copy(outFile, rc)
+
+				if err != nil {
+					logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
+					return fPath, fTime, err
+				}
+				fTime = fileTime{fPath, file.Modified}
+			}
+			return fPath, fTime, nil
+		}(file)
+
 		if err != nil {
-			return filenames, err
+			logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
+			return files, err
 		}
-		defer rc.Close()
-
-		// Store filename/path for returning and using later on
-		fpath := filepath.Join(dest, f.Name)
-
-		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
-		if dest != "/" && !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return filenames, fmt.Errorf("%s: illegal file path", fpath)
-		}
-
-		filenames = append(filenames, fpath)
-
-		if f.FileInfo().IsDir() {
-
-			// Make Folder
-			os.MkdirAll(fpath, os.ModePerm)
-
-			fileTimes = append(fileTimes, fileTime{fpath, f.Modified})
-		} else if (f.FileInfo().Mode() & os.ModeSymlink) != 0 {
-			buffer := make([]byte, f.FileInfo().Size())
-			size, err := rc.Read(buffer)
-			if err != nil && err != io.EOF {
-				return filenames, err
-			}
-
-			target := string(buffer[:size])
-
-			err = os.Symlink(target, fpath)
-			if err != nil {
-				return filenames, err
-			}
-		} else {
-
-			// Make File
-			if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-				return filenames, err
-			}
-
-			outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-			if err != nil {
-				return filenames, err
-			}
-
-			_, err = io.Copy(outFile, rc)
-
-			// Close the file without defer to close before next iteration of loop
-			outFile.Close()
-
-			if err != nil {
-				return filenames, err
-			}
-
-			fileTimes = append(fileTimes, fileTime{fpath, f.Modified})
-		}
+		files = append(files, fPath)
+		filesTime = append(filesTime, fTime)
 	}
 
 	// sort longest first
-	sort.Slice(fileTimes, func(i, j int) bool {
-		return len(fileTimes[i].path) > len(fileTimes[j].path)
+	sort.Slice(filesTime, func(i, j int) bool {
+		return len(filesTime[i].path) > len(filesTime[j].path)
 	})
-	log.Print(fileTimes)
 
-	for _, ft := range fileTimes {
+	for _, ft := range filesTime {
 		if err := os.Chtimes(ft.path, time.Now(), ft.modtime); err != nil {
-			log.Print("failed to update file timestamps:", err)
+			msg := fmt.Sprintf("failed to update file timestamps: %v", err)
+			logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
 		}
 	}
 
-	return filenames, nil
+	return files, nil
 }
