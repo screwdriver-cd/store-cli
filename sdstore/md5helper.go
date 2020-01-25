@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/screwdriver-cd/store-cli/logger"
 )
 
 // md5Hash struct with file, md5, total bytes, error
@@ -29,6 +31,8 @@ type result struct {
 	sum  string
 	err  error
 }
+
+const Md5helperModule = "md5helper"
 
 // get md5Hash for given file
 func getMd5Hash(filePath string) (string, int64, error) {
@@ -192,7 +196,8 @@ func GenerateMd5(path string) (map[string]string, error) {
 	}
 	totalFiles := float64(len(files))
 	batchSize := math.Ceil(totalFiles / float64(MaxConcurrencyLimit))
-	fmt.Printf("batch size: %d, concurreny limit: %d, total files: %d\n", int(batchSize), int(MaxConcurrencyLimit), int(totalFiles))
+	msg := fmt.Sprintf("batch size: %d, concurreny limit: %d, total files: %d\n", int(batchSize), int(MaxConcurrencyLimit), int(totalFiles))
+	logger.Log(logger.LOGLEVEL_INFO, Md5helperModule, "", msg)
 
 	k := 0
 	for i := 0; i < int(batchSize); i++ {
