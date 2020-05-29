@@ -93,7 +93,6 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 		if strings.HasPrefix(key, "../") {
 			key, _ = filepath.Abs(key)
 		}
-		key = strings.TrimPrefix(key, "./")
 		key = strings.TrimRight(key, "/")
 		encoded := url.PathEscape(key)
 		path = "caches/" + scope + "s/" + scopeEnv + "/" + encoded

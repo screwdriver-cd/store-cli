@@ -309,7 +309,6 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_FILE, msg)
 		}
 	}
-	srcDir = strings.TrimPrefix(srcDir, "./")
 	if baseCacheDir, err = filepath.Abs(baseCacheDir); err != nil {
 		msg = fmt.Sprintf("%v in path %v, command: %v", err, baseCacheDir, command)
 		return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_FILE, msg)
