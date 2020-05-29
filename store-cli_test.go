@@ -62,8 +62,8 @@ func TestMakeURL(t *testing.T) {
 	}{
 		{"cache", "job", "/myprcache", "http://store.screwdriver.cd/v1/caches/jobs/987/%2Fmyprcache"},
 		{"cache", "event", "/mycache", "http://store.screwdriver.cd/v1/caches/events/499/%2Fmycache"},
-		{"cache", "event", "mycache", fmt.Sprintf("%s%s%s", "http://store.screwdriver.cd/v1/caches/events/499/", abspath, "%2Fmycache")},
-		{"cache", "event", "./mycache", fmt.Sprintf("%s%s%s", "http://store.screwdriver.cd/v1/caches/events/499/", abspath, "%2Fmycache")},
+		{"cache", "event", "mycache", fmt.Sprintf("%s%s", "http://store.screwdriver.cd/v1/caches/events/499/", "mycache")},
+		{"cache", "event", "./mycache", fmt.Sprintf("%s%s", "http://store.screwdriver.cd/v1/caches/events/499/", "mycache")},
 		{"cache", "event", "/tmp/mycache/1/2/3/4/", "http://store.screwdriver.cd/v1/caches/events/499/%2Ftmp%2Fmycache%2F1%2F2%2F3%2F4"},
 		{"cache", "event", "/!-_.*'()&@:,.$=+?; space", "http://store.screwdriver.cd/v1/caches/events/499/%2F%21-_.%2A%27%28%29&@:%2C.$=+%3F%3B%20space"},
 		{"artifact", "event", "artifact-1", "http://store.screwdriver.cd/v1/builds/10038/ARTIFACTS/artifact-1"},
