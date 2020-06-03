@@ -140,11 +140,17 @@ func getCache(src, dest, command string, compress bool) error {
 		}
 
 		targetZipPath := fmt.Sprintf("%s.zip", dest)
-
 		if err = copy.Copy(srcZipPath, targetZipPath); err != nil {
 			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_COPY, err)
 		}
-		_, err = Unzip(targetZipPath, filepath.Dir(dest))
+		// destination is relative without subdirectories, unzip in SD Source Directory
+		filePath := dest
+		dest, _ := filepath.Split(filePath)
+		if !strings.HasPrefix(filePath, "/") {
+			wd, _ := os.Getwd()
+			dest = filepath.Join(wd, dest)
+		}
+		_, err = Unzip(targetZipPath, dest)
 		if err != nil {
 			logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_ZIP, fmt.Sprintf("could not unzip file %s", src))
 		}
@@ -293,16 +299,16 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 	if strings.HasPrefix(baseCacheDir, "~/") {
 		baseCacheDir = filepath.Join(homeDir, strings.TrimPrefix(baseCacheDir, "~/"))
 	}
-
 	if strings.HasPrefix(srcDir, "~/") {
 		srcDir = filepath.Join(homeDir, strings.TrimPrefix(srcDir, "~/"))
 	}
-
-	if srcDir, err = filepath.Abs(srcDir); err != nil {
-		msg = fmt.Sprintf("%v in src path %v, command: %v", err, srcDir, command)
-		return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_FILE, msg)
+	srcDir = filepath.Clean(srcDir)
+	if strings.HasPrefix(srcDir, "../") {
+		if srcDir, err = filepath.Abs(srcDir); err != nil {
+			msg = fmt.Sprintf("%v in src path %v, command: %v", err, srcDir, command)
+			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_FILE, msg)
+		}
 	}
-
 	if baseCacheDir, err = filepath.Abs(baseCacheDir); err != nil {
 		msg = fmt.Sprintf("%v in path %v, command: %v", err, baseCacheDir, command)
 		return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_FILE, msg)

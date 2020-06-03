@@ -104,6 +104,10 @@ func (s *sdStore) Download(url *url.URL, toExtract bool) error {
 	log.Printf("filePath = %s", filePath)
 	if filePath != "" {
 		dir, _ := filepath.Split(filePath)
+		if !strings.HasPrefix(filePath, "/") {
+			wd, _ := os.Getwd()
+			dir = filepath.Join(wd, dir)
+		}
 		err = os.MkdirAll(dir, 0777)
 		if err != nil {
 			return err

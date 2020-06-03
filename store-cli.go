@@ -10,8 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/screwdriver-cd/store-cli/sdstore"
 	"github.com/urfave/cli"
+
+	"github.com/screwdriver-cd/store-cli/sdstore"
 )
 
 // VERSION gets set by the build script via the LDFLAGS
@@ -84,11 +85,14 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	var path string
 	switch storeType {
 	case "cache":
-		// if path is relative, get abs path
-		if strings.HasPrefix(key, "/") == false {
+		key = filepath.Clean(key)
+		homeDir, _ := os.UserHomeDir()
+		if strings.HasPrefix(key, "~/") {
+			key = filepath.Join(homeDir, strings.TrimPrefix(key, "~/"))
+		}
+		if strings.HasPrefix(key, "../") {
 			key, _ = filepath.Abs(key)
 		}
-
 		key = strings.TrimRight(key, "/")
 		encoded := url.PathEscape(key)
 		path = "caches/" + scope + "s/" + scopeEnv + "/" + encoded

@@ -830,6 +830,61 @@ func Test_SetCache_MaxSizeError(t *testing.T) {
 	}
 }
 
+func Test_SetCache_NewRelativeFolder_wCompress(t *testing.T) {
+	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline"}
+	localCacheFolders := []string{"storecli"}
+
+	origDir, _ := os.Getwd()
+	for _, eachCacheScope := range cacheScope {
+		cache := strings.Split(eachCacheScope, ":")
+		ss, _ := filepath.Abs(cache[2])
+		_ = os.Setenv(cache[1], ss)
+		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
+		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
+
+		for _, eachFolder := range localCacheFolders {
+			fmt.Printf("local cache folder is [%s]\n", eachFolder)
+			home, _ := os.UserHomeDir()
+			dir := filepath.Join(home, "tmp")
+			os.Chdir(dir)
+			assert.Assert(t, Cache2Disk("set", cache[0], eachFolder, true, true, 0) == nil)
+			_, err := os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), ".zip")))
+			assert.Assert(t, err == nil)
+			_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), ".md5")))
+			assert.Assert(t, err == nil)
+		}
+	}
+	os.Chdir(origDir)
+}
+
+func Test_GetCache_NewRelativeFolder_wCompress(t *testing.T) {
+	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline"}
+	localCacheFolders := []string{"storecli"}
+
+	origDir, _ := os.Getwd()
+	for _, eachCacheScope := range cacheScope {
+		cache := strings.Split(eachCacheScope, ":")
+		fmt.Println(cache[2])
+		ss, _ := filepath.Abs(cache[2])
+		_ = os.Setenv(cache[1], ss)
+		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], ss)
+
+		for _, eachFolder := range localCacheFolders {
+			fmt.Printf("local cache folder is [%s]\n", eachFolder)
+			home, _ := os.UserHomeDir()
+			dir := filepath.Join(home, "tmp")
+			os.Chdir(dir)
+			_ = os.RemoveAll(cache[0])
+			assert.Assert(t, Cache2Disk("get", cache[0], eachFolder, true, true, 0) == nil)
+			_, err := os.Lstat(filepath.Join(dir, eachFolder))
+			assert.Assert(t, err == nil)
+		}
+	}
+	os.Chdir(origDir)
+}
+
 func Test_RemoveCache_Folders(t *testing.T) {
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline", "job:SD_JOB_CACHE_DIR:../data/cache/job", "event:SD_EVENT_CACHE_DIR:../data/cache/event"}
 
@@ -838,4 +893,8 @@ func Test_RemoveCache_Folders(t *testing.T) {
 		cacheDir, _ := filepath.Abs(cache[2])
 		_ = os.RemoveAll(cacheDir)
 	}
+
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, "tmp/storecli/")
+	_ = os.RemoveAll(dir)
 }
