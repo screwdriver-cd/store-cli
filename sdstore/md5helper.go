@@ -40,15 +40,14 @@ func getMd5Hash(wg *sync.WaitGroup, filePath string) (string, int64, error) {
 
 	defer wg.Done()
 	file, err := os.Open(filePath)
-	defer file.Close()
-
 	if err != nil {
 		return "", 0, err
 	}
+	defer file.Close()
+
 	md5hash := md5.New()
 	b, err := io.Copy(md5hash, file)
 	if err != nil {
-		fmt.Printf("iocopy error")
 		return "", b, err
 	}
 

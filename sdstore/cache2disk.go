@@ -90,7 +90,7 @@ func removeCacheDirectory(path, md5Path string) {
 	_, err := os.Lstat(path)
 
 	if err != nil {
-		logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("cache %v does not exist", path))
+		logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("%v: No such file or directory", path))
 	} else {
 		if err := os.RemoveAll(md5Path); err != nil {
 			logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("failed to clean out %v.md5 file: %v", filepath.Base(path), md5Path))
