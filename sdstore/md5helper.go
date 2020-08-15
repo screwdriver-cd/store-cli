@@ -48,7 +48,7 @@ func getMd5Hash(wg *sync.WaitGroup, filePath string) (string, int64, error) {
 	md5hash := md5.New()
 	b, err := io.Copy(md5hash, file)
 	if err != nil {
-		return "", b, err
+		return "", 0, err
 	}
 
 	md5hashInBytes := md5hash.Sum(nil)[:16]
