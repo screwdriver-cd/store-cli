@@ -35,18 +35,21 @@ type result struct {
 const Md5helperModule = "md5helper"
 
 // get md5Hash for given file
-func getMd5Hash(filePath string) (string, int64, error) {
+func getMd5Hash(wg *sync.WaitGroup, filePath string) (string, int64, error) {
 	var md5str string
 
+	defer wg.Done()
 	file, err := os.Open(filePath)
+	defer file.Close()
+
 	if err != nil {
 		return "", 0, err
 	}
-	defer file.Close()
 	md5hash := md5.New()
 	b, err := io.Copy(md5hash, file)
 	if err != nil {
-		return md5str, b, err
+		fmt.Printf("iocopy error")
+		return "", b, err
 	}
 
 	md5hashInBytes := md5hash.Sum(nil)[:16]
@@ -204,8 +207,7 @@ func GenerateMd5(path string) (map[string]string, error) {
 		for j := k; j < int(totalFiles); j++ {
 			wg.Add(1)
 			go func(f string) {
-				wg.Done()
-				md5str, b, err := getMd5Hash(f)
+				md5str, b, err := getMd5Hash(&wg, f)
 				md5Channel <- md5Hash{f, md5str, b, err}
 			}(files[j])
 			k = j + 1
@@ -223,7 +225,7 @@ func GenerateMd5(path string) (map[string]string, error) {
 			err = md5.err
 			break
 		}
-		md5Map[md5.file] = fmt.Sprintf("%s,%d,%v", md5.sum, md5.b, md5.err)
+		md5Map[md5.file] = fmt.Sprintf("%v,%d,%v", md5.sum, md5.b, md5.err)
 	}
 
 	return md5Map, err
