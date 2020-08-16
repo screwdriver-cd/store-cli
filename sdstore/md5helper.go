@@ -9,11 +9,14 @@ import (
 	"fmt"
 	"github.com/karrick/godirwalk"
 	"io"
-	"math"
+	"strconv"
+
+	// "math"
 	"os"
 	"path/filepath"
 	"sync"
 
+	"github.com/pieterclaerhout/go-waitgroup"
 	"github.com/screwdriver-cd/store-cli/logger"
 )
 
@@ -34,11 +37,19 @@ type result struct {
 
 const Md5helperModule = "md5helper"
 
+// getEnv get key environment variable if exist otherwise return defaultValue
+func getEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if len(value) == 0 {
+		return defaultValue
+	}
+	return value
+}
+
 // get md5Hash for given file
-func getMd5Hash(wg *sync.WaitGroup, filePath string) (string, int64, error) {
+func getMd5Hash(filePath string) (string, int64, error) {
 	var md5str string
 
-	defer wg.Done()
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", 0, err
@@ -185,47 +196,27 @@ param - path		file or folder path
 return - md5map / error	success - return md5map; error - return error description
 */
 func GenerateMd5(path string) (map[string]string, error) {
-	var wg sync.WaitGroup
-
-	const MaxConcurrencyLimit = 3000
+	var rwm sync.RWMutex
 	md5Map := make(map[string]string)
-	md5Channel := make(chan md5Hash)
-	defer close(md5Channel)
+	maxGoRoutines, _ := strconv.Atoi(getEnv("SD_CACHE_MAX_GO_ROUTINES", "5000"))
+	wg := waitgroup.NewWaitGroup(maxGoRoutines)
 
 	files, err := getAllFiles(path)
 	if err != nil {
 		return nil, err
 	}
-	totalFiles := float64(len(files))
-	batchSize := math.Ceil(totalFiles / float64(MaxConcurrencyLimit))
-	msg := fmt.Sprintf("batch size: %d, concurreny limit: %d, total files: %d\n", int(batchSize), int(MaxConcurrencyLimit), int(totalFiles))
+	msg := fmt.Sprintf("total files: %d\n", len(files))
 	logger.Log(logger.LOGLEVEL_INFO, Md5helperModule, "", msg)
-
-	k := 0
-	for i := 0; i < int(batchSize); i++ {
-		for j := k; j < int(totalFiles); j++ {
-			wg.Add(1)
-			go func(f string) {
-				md5str, b, err := getMd5Hash(&wg, f)
-				md5Channel <- md5Hash{f, md5str, b, err}
-			}(files[j])
-			k = j + 1
-			if math.Mod(float64(k), float64(MaxConcurrencyLimit)) == 0 {
-				break
-			}
-		}
-		wg.Wait()
+	for _, name := range files {
+		wg.BlockAdd()
+		go func(f string) {
+			md5str, b, err := getMd5Hash(f)
+			rwm.Lock()
+			defer rwm.Unlock()
+			md5Map[f] = fmt.Sprintf("%v,%d,%v", md5str, b, err)
+			wg.Done()
+		}(name)
 	}
-
-	for range files {
-		md5 := <-md5Channel
-		if md5.err != nil {
-			md5Map = nil
-			err = md5.err
-			break
-		}
-		md5Map[md5.file] = fmt.Sprintf("%v,%d,%v", md5.sum, md5.b, md5.err)
-	}
-
+	wg.Wait()
 	return md5Map, err
 }

@@ -90,7 +90,7 @@ func removeCacheDirectory(path, md5Path string) {
 	_, err := os.Lstat(path)
 
 	if err != nil {
-		logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("%v: No such file or directory", path))
+		logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("error: %v\n", err))
 	} else {
 		if err := os.RemoveAll(md5Path); err != nil {
 			logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("failed to clean out %v.md5 file: %v", filepath.Base(path), md5Path))
@@ -116,7 +116,6 @@ func getCache(src, dest, command string, compress bool) error {
 	logger.Log(logger.LOGLEVEL_INFO, "", "", "get cache")
 	info, err := os.Lstat(src)
 	if err != nil {
-		fmt.Printf("%v: No such file or directory\n", src)
 		msg = fmt.Sprintf("directory [%v] check failed, do file check %v", src, command)
 		logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, msg)
 	}
@@ -347,8 +346,8 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 		destPath := dest
 
 		if err != nil {
-			fmt.Printf("%v: No such file or directory", dest)
-			logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("%v: No such file or directory", dest))
+			fmt.Printf("error: %v\n", err)
+			logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("error: %v", err))
 		} else {
 			if !info.IsDir() {
 				destPath = filepath.Dir(dest)
