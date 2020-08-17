@@ -198,8 +198,8 @@ return - md5map / error	success - return md5map; error - return error descriptio
 func GenerateMd5(path string) (map[string]string, error) {
 	var rwm sync.RWMutex
 	md5Map := make(map[string]string)
-	maxGoRoutines, _ := strconv.Atoi(getEnv("SD_CACHE_MAX_GO_THREADS", "10000"))
-	wg := waitgroup.NewWaitGroup(maxGoRoutines)
+	maxGoThreads, _ := strconv.Atoi(getEnv("SD_CACHE_MAX_GO_THREADS", "10000"))
+	wg := waitgroup.NewWaitGroup(maxGoThreads)
 
 	files, err := getAllFiles(path)
 	if err != nil {
