@@ -236,7 +236,7 @@ func Unzip(src string, dest string) ([]string, error) {
 	for _, ft := range filesTime {
 		if err := os.Chtimes(ft.path, time.Now(), ft.modtime); err != nil {
 			msg := fmt.Sprintf("failed to update file timestamps: %v", err)
-			logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
+			logger.Log(logger.LOGLEVEL_WARN, ZiphelperModule, "", msg)
 		}
 	}
 

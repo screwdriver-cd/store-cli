@@ -90,7 +90,7 @@ func removeCacheDirectory(path, md5Path string) {
 	_, err := os.Lstat(path)
 
 	if err != nil {
-		logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("cache directory does not exist: %v", path))
+		logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("error: %v\n", err))
 	} else {
 		if err := os.RemoveAll(md5Path); err != nil {
 			logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("failed to clean out %v.md5 file: %v", filepath.Base(path), md5Path))
@@ -165,6 +165,7 @@ func getCache(src, dest, command string, compress bool) error {
 	if info.IsDir() {
 		defer os.RemoveAll(filepath.Join(dest, fmt.Sprintf("%s%s", filepath.Base(dest), ".md5")))
 	}
+	fmt.Println("get cache SUCCESS")
 	return logger.Log(logger.LOGLEVEL_INFO, "", "", "get cache complete")
 }
 
@@ -197,6 +198,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 
 	if cacheMaxSizeInMB > 0 {
 		sizeInMB := int64(float64(getSizeInBytes(src)) * 0.000001)
+		fmt.Printf("size: %vMB\n", sizeInMB)
 		if sizeInMB > cacheMaxSizeInMB {
 			msg = fmt.Sprintf("source directory size %vMB is more than allowed max limit %vMB", sizeInMB, cacheMaxSizeInMB)
 			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_MAXSIZELIMIT, msg)
@@ -325,27 +327,27 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 
 	switch command {
 	case "set":
-		fmt.Println("set cache")
+		fmt.Printf("set cache -> {scope: %v, path: %v} \n", cacheScope, srcDir)
 		if err = setCache(src, dest, command, compress, md5Check, cacheMaxSizeInMB); err != nil {
 			return logger.Log(logger.LOGLEVEL_ERROR, "", "", fmt.Sprintf("set cache FAILED"))
 		}
-		fmt.Println("set cache completed")
+		fmt.Println("set cache SUCCESS")
 	case "get":
-		fmt.Println("get cache")
 		src = cacheDir
 		dest = srcDir
+		fmt.Printf("get cache -> {scope: %v, path: %v} \n", cacheScope, srcDir)
 		if err = getCache(src, dest, command, compress); err != nil {
 			logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("get cache FAILED"))
 		}
-		fmt.Println("get cache completed")
 	case "remove":
-		fmt.Println("remove cache")
+		fmt.Printf("remove cache -> {scope: %v, path: %v} \n", cacheScope, srcDir)
 		info, err := os.Lstat(dest)
 		destBase := filepath.Base(dest)
 		destPath := dest
 
 		if err != nil {
-			logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("path %v does not exist", dest))
+			fmt.Printf("error: %v\n", err)
+			logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("error: %v", err))
 		} else {
 			if !info.IsDir() {
 				destPath = filepath.Dir(dest)
@@ -354,7 +356,7 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 
 			removeCacheDirectory(dest, filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".md5")))
 		}
-		fmt.Println("remove cache completed")
+		fmt.Println("remove cache SUCCESS")
 	}
 	return nil
 }
