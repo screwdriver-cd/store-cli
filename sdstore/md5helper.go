@@ -37,15 +37,6 @@ type result struct {
 
 const Md5helperModule = "md5helper"
 
-// getEnv get key environment variable if exist otherwise return defaultValue
-func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if len(value) == 0 {
-		return defaultValue
-	}
-	return value
-}
-
 // get md5Hash for given file
 func getMd5Hash(filePath string) (string, int64, error) {
 	var md5str string
@@ -198,7 +189,7 @@ return - md5map / error	success - return md5map; error - return error descriptio
 func GenerateMd5(path string) (map[string]string, error) {
 	var rwm sync.RWMutex
 	md5Map := make(map[string]string)
-	maxGoThreads, _ := strconv.Atoi(getEnv("SD_CACHE_MAX_GO_THREADS", "10000"))
+	maxGoThreads, _ := strconv.Atoi(os.Getenv("SD_CACHE_MAX_GO_THREADS"))
 	wg := waitgroup.NewWaitGroup(maxGoThreads)
 
 	files, err := getAllFiles(path)
