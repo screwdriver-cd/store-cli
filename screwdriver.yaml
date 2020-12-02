@@ -5,11 +5,14 @@ shared:
 
 jobs:
     main:
+        environment:
+            SD_SONAR_OPTS:  "-Dsonar.sources=./ -Dsonar.exclusions=**/*_test.go,**/vendor/** -Dsonar.tests=./ -Dsonar.test.inclusions=**/*_test.go -Dsonar.test.exclusions=**/vendor/** -Dsonar.go.coverage.reportPaths=${SD_ARTIFACTS_DIR}/coverage.out -Dsonar.go.tests.reportPaths=${SD_ARTIFACTS_DIR}/report.json"
         requires: [~commit, ~pr]
         steps:
             - vet: go vet ./...
             - gofmt: ret=$(find . -name '*.go' | xargs gofmt -d) && echo "$ret" && test -z "$ret"
-            - test: go test ./...
+            - test-setup: go get gotest.tools/gotestsum@v0.6.0
+            - test: gotestsum --format testname --jsonfile ${SD_ARTIFACTS_DIR}/report.json -- -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out ./...
             - build: go build -a -o store-cli
             - test-release: "curl -sL https://git.io/goreleaser | bash -s -- --snapshot"
 
