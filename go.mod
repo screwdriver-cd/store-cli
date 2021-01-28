@@ -7,7 +7,6 @@ require (
 	github.com/karrick/godirwalk v1.14.0
 	github.com/otiai10/copy v1.0.2
 	github.com/pieterclaerhout/go-waitgroup v1.0.7
-	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
 	github.com/urfave/cli v1.22.2
