@@ -334,6 +334,8 @@ func Cache2Disk(command, cacheScope, srcDir string, compress, md5Check bool, cac
 		fmt.Printf("get cache -> {scope: %v, path: %v} \n", cacheScope, srcDir)
 		if err = getCache(src, dest, command, compress); err != nil {
 			logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("get cache FAILED"))
+		} else {
+			fmt.Println("get cache SUCCESS")
 		}
 	case "remove":
 		fmt.Printf("remove cache -> {scope: %v, path: %v} \n", cacheScope, srcDir)
