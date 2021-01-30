@@ -1,7 +1,10 @@
 package sdstore
 
 import (
-	"archive/zip"
+	//"archive/zip"
+	"github.com/klauspost/compress/flate"
+	"github.com/klauspost/compress/zip"
+
 	"fmt"
 	"io"
 	"os"
@@ -53,6 +56,10 @@ func Zip(source, target string) error {
 	defer zipfile.Close()
 
 	w := zip.NewWriter(zipfile)
+	// Register a custom Deflate compressor.
+	w.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		return flate.NewWriter(out, flate.DefaultCompression)
+	})
 	defer w.Close()
 
 	sourceInfo, err := os.Stat(source)
@@ -224,8 +231,11 @@ func Unzip(src string, dest string) ([]string, error) {
 			logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
 			return files, err
 		}
+
 		files = append(files, fPath)
-		filesTime = append(filesTime, fTime)
+		if _, err = os.Stat(fTime.path); err == nil {
+			filesTime = append(filesTime, fTime)
+		}
 	}
 
 	// sort longest first
@@ -236,7 +246,7 @@ func Unzip(src string, dest string) ([]string, error) {
 	for _, ft := range filesTime {
 		if err := os.Chtimes(ft.path, time.Now(), ft.modtime); err != nil {
 			msg := fmt.Sprintf("failed to update file timestamps: %v", err)
-			logger.Log(logger.LOGLEVEL_WARN, ZiphelperModule, "", msg)
+			logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", msg)
 		}
 	}
 

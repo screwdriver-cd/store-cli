@@ -82,7 +82,7 @@ func getAllFiles(path string) ([]string, error) {
 			return nil
 		},
 		ErrorCallback: func(filePath string, err error) godirwalk.ErrorAction {
-			fmt.Printf("error %v in walking directory %s", err, filePath)
+			// fmt.Printf("error %v in walking directory %s", err, filePath)
 			return godirwalk.SkipNode
 		},
 		Unsorted:            true,
@@ -200,7 +200,6 @@ func GenerateMd5(path string) (map[string]string, error) {
 	md5Map := make(map[string]string)
 	maxGoThreads, _ := strconv.Atoi(getEnv("SD_CACHE_MAX_GO_THREADS", "10000"))
 	wg := waitgroup.NewWaitGroup(maxGoThreads)
-
 	files, err := getAllFiles(path)
 	if err != nil {
 		return nil, err
