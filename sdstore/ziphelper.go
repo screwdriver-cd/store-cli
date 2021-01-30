@@ -1,10 +1,7 @@
 package sdstore
 
 import (
-	//"archive/zip"
-	"github.com/klauspost/compress/flate"
-	"github.com/klauspost/compress/zip"
-
+	"archive/zip"
 	"fmt"
 	"io"
 	"os"
@@ -56,10 +53,6 @@ func Zip(source, target string) error {
 	defer zipfile.Close()
 
 	w := zip.NewWriter(zipfile)
-	// Register a custom Deflate compressor.
-	w.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
-		return flate.NewWriter(out, flate.DefaultCompression)
-	})
 	defer w.Close()
 
 	sourceInfo, err := os.Stat(source)

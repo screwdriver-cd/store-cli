@@ -5,7 +5,6 @@ go 1.12
 require (
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/karrick/godirwalk v1.14.0
-	github.com/klauspost/compress v1.11.7
 	github.com/otiai10/copy v1.0.2
 	github.com/pieterclaerhout/go-waitgroup v1.0.7
 	github.com/sirupsen/logrus v1.4.2
