@@ -134,24 +134,34 @@ func getCache(src, dest, command, compressFormat string, compress bool) error {
 				if err != nil {
 					msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatZip), command)
 					return logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, msg)
-				} else {
-					compressFormat = "zip"
 				}
-			} else {
-				compressFormat = "zst"
 			}
+		}
+
+		if info.IsDir() {
+			srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatTarZst)
+			destPath = dest
+		} else {
+			srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatTarZst)
+			destPath = filepath.Dir(dest)
+		}
+		_, err = os.Lstat(srcZipPath)
+		if err != nil {
+			// backward-compatibility to look for .zip file if .tar.zst is missing
+			if info.IsDir() {
+				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatZip)
+				destPath = dest
+			} else {
+				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatZip)
+				destPath = filepath.Dir(dest)
+			}
+			compressFormat = CompressFormatZip
+		} else {
+			compressFormat = CompressFormatTarZst
 		}
 
 		switch compressFormat {
 		case CompressFormatTarZst:
-			if info.IsDir() {
-				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatTarZst)
-				destPath = dest
-			} else {
-				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatTarZst)
-				destPath = filepath.Dir(dest)
-			}
-
 			// zstd route
 			// check if .tar.zst file exist
 			_, err := os.Lstat(srcZipPath)
@@ -172,14 +182,6 @@ func getCache(src, dest, command, compressFormat string, compress bool) error {
 			}
 
 		default:
-			if info.IsDir() {
-				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatZip)
-				destPath = dest
-			} else {
-				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatZip)
-				destPath = filepath.Dir(dest)
-			}
-
 			_ = os.MkdirAll(filepath.Dir(destPath), 0777)
 
 			targetZipPath := fmt.Sprintf("%s%s", dest, CompressFormatZip)
