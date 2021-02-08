@@ -897,6 +897,36 @@ func Test_GetCache_NewRelativeFolder_wCompress(t *testing.T) {
 	_ = os.Chdir(origDir)
 }
 
+func Test_BackwardCompatibility_Zip_Folder(t *testing.T) {
+	localFolder, _ := filepath.Abs("../data/cache/.m2/testfolder1")
+	cacheFolder, _ := filepath.Abs("../data/cache/pipeline")
+	cacheFolder = filepath.Join(cacheFolder, localFolder)
+	_ = os.RemoveAll(cacheFolder)
+	_ = os.MkdirAll(cacheFolder, 0777)
+	cacheFile := fmt.Sprintf("%s/%s", cacheFolder, "testfolder1.zip")
+	Zip(localFolder, cacheFile)
+
+	_ = os.RemoveAll(localFolder)
+	assert.Assert(t, Cache2Disk("get", "pipeline", localFolder, true, true, 0) == nil)
+	_, err := os.Lstat(filepath.Join(localFolder, fmt.Sprintf("%s%s", filepath.Base(localFolder), ".txt")))
+	assert.Assert(t, err == nil)
+}
+
+func Test_BackwardCompatibility_Zip_File(t *testing.T) {
+	localFolder, _ := filepath.Abs("../data/cache/.m2/testfolder1/testfolder1.txt")
+	cacheFolder, _ := filepath.Abs("../data/cache/pipeline")
+	cacheFolder = filepath.Join(cacheFolder, filepath.Dir(localFolder))
+	_ = os.RemoveAll(cacheFolder)
+	_ = os.MkdirAll(cacheFolder, 0777)
+	cacheFile := fmt.Sprintf("%s/%s", cacheFolder, "testfolder1.txt.zip")
+	Zip(localFolder, cacheFile)
+
+	_ = os.RemoveAll(filepath.Dir(localFolder))
+	assert.Assert(t, Cache2Disk("get", "pipeline", localFolder, true, true, 0) == nil)
+	_, err := os.Lstat(filepath.Join(filepath.Dir(localFolder), filepath.Base(localFolder)))
+	assert.Assert(t, err == nil)
+}
+
 func Test_RemoveCache_Folders(t *testing.T) {
 	removeCacheFolders()
 }
