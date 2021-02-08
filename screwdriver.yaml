@@ -11,6 +11,12 @@ jobs:
         steps:
             - vet: go vet ./...
             - gofmt: ret=$(find . -name '*.go' | xargs gofmt -d) && echo "$ret" && test -z "$ret"
+            - pretest-setup: |
+                  wget -O hab.tar.gz 'https://api.bintray.com/content/habitat/stable/linux/x86_64/hab-0.79.1-20190410220617-x86_64-linux.tar.gz?bt_package=hab-x86_64-linux'
+                  tar -C . -ozxvf hab.tar.gz
+                  mv hab-*/hab /hab/bin/hab
+                  /hab/bin/hab pkg install core/zstd
+                  /hab/bin/hab hab pkg binlink core/zstd zstd
             - test-setup: go get gotest.tools/gotestsum@v0.6.0
             - test: gotestsum --format testname --jsonfile ${SD_ARTIFACTS_DIR}/report.json -- -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out ./...
             - build: go build -a -o store-cli
