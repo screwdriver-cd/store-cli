@@ -68,7 +68,7 @@ func Test_SetCache_wCompress_File_CherryPick(t *testing.T) {
 			// compress: true
 			assert.Assert(t, Cache2Disk("set", cache[0], local, true, true, 0) == nil)
 
-			_, err := os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
+			_, err := os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
 			assert.Assert(t, err == nil)
 
 			_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
@@ -96,7 +96,7 @@ func Test_SetCache_wCompress_File(t *testing.T) {
 			// compress: true
 			assert.Assert(t, Cache2Disk("set", cache[0], local, true, true, 0) == nil)
 
-			_, err := os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
+			_, err := os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
 			assert.Assert(t, err == nil)
 
 			_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
@@ -126,12 +126,12 @@ func Test_SetCache_wCompress_RewriteFile_NODELTA(t *testing.T) {
 			// compress: true
 			assert.Assert(t, Cache2Disk("set", cache[0], local, true, true, 0) == nil)
 
-			info, _ := os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
-			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
+			info, _ := os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
+			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 
 			info, _ = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
-			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
+			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 		}
 	}
@@ -243,11 +243,11 @@ func Test_SetCache_RewriteFile_NODELTA(t *testing.T) {
 			assert.Assert(t, Cache2Disk("set", cache[0], local, false, true, 0) == nil)
 
 			info, _ := os.Lstat(filepath.Join(cacheDir, local))
-			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
+			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 
 			info, _ = os.Lstat(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, ".md5")))
-			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
+			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 		}
 	}
@@ -353,7 +353,7 @@ func Test_SetCache_wCompress_NewFolder_CherryPick(t *testing.T) {
 			// compress: true
 			assert.Assert(t, Cache2Disk("set", cache[0], local, true, true, 0) == nil)
 
-			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
+			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
 			assert.Assert(t, err == nil)
 
 			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
@@ -411,7 +411,7 @@ func Test_SetCache_wCompress_NewFolder(t *testing.T) {
 			// compress: true
 			assert.Assert(t, Cache2Disk("set", cache[0], local, true, true, 0) == nil)
 
-			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
+			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
 			assert.Assert(t, err == nil)
 
 			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
@@ -440,12 +440,12 @@ func Test_SetCache_wCompress_RewriteFolder_NODELTA(t *testing.T) {
 
 			assert.Assert(t, Cache2Disk("set", cache[0], local, true, true, 0) == nil)
 
-			info, _ := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
-			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
+			info, _ := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
+			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 
 			info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
-			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
+			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 		}
 	}
@@ -534,7 +534,7 @@ func Test_RemoveCache_Folder_wCompress(t *testing.T) {
 			// compress: true
 			assert.Assert(t, Cache2Disk("remove", cache[0], local, true, true, 0) == nil)
 
-			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
+			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
 			assert.ErrorContains(t, err, "no such file or directory")
 
 			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
@@ -594,11 +594,11 @@ func Test_SetCache_RewriteFolder_NODELTA(t *testing.T) {
 			assert.Assert(t, Cache2Disk("set", cache[0], local, false, true, 0) == nil)
 
 			info, _ := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
-			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
+			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 
 			info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
-			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
+			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 		}
 	}
@@ -742,7 +742,7 @@ func Test_SetCache_NewFolder_wCompress_wTilde(t *testing.T) {
 			// compress: false
 			assert.Assert(t, Cache2Disk("set", cache[0], eachFolder, true, true, 0) == nil)
 
-			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
+			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
 			assert.Assert(t, err == nil)
 
 			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
@@ -850,7 +850,7 @@ func Test_SetCache_NewRelativeFolder_wCompress(t *testing.T) {
 			dir := filepath.Join(home, "tmp")
 			os.Chdir(dir)
 			assert.Assert(t, Cache2Disk("set", cache[0], eachFolder, true, true, 0) == nil)
-			_, err := os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), ".zip")))
+			_, err := os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), ".tar.zst")))
 			assert.Assert(t, err == nil)
 			_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), ".md5")))
 			assert.Assert(t, err == nil)
