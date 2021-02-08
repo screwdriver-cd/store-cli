@@ -900,4 +900,3 @@ func Test_GetCache_NewRelativeFolder_wCompress(t *testing.T) {
 func Test_RemoveCache_Folders(t *testing.T) {
 	removeCacheFolders()
 }
-
