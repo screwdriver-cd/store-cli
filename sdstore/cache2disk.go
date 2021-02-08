@@ -107,9 +107,10 @@ func removeCacheDirectory(path, md5Path string) {
 /*
 get cache from shared file server to local
 param - src         		source directory
-param - dest			destination directory
-param -	command			get
-param - compress		get compressed cache
+param - dest				destination directory
+param -	command				get
+param - compressFormat		.tar.zst / .zip
+param - compress			get compressed cache
 return - nil / error   		success - return nil; error - return error description
 */
 func getCache(src, dest, command, compressFormat string, compress bool) error {
@@ -124,12 +125,21 @@ func getCache(src, dest, command, compressFormat string, compress bool) error {
 
 	if compress {
 		if err != nil {
-			info, err = os.Lstat(fmt.Sprintf("%s%s", src, CompressFormatTarZst))
-			if err != nil {
-				msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatTarZst), command)
-				_ = logger.Log(logger.LOGLEVEL_INFO, "", logger.ERRTYPE_FILE, msg)
+			switch compressFormat {
+			case CompressFormatTarZst:
+				info, err = os.Lstat(fmt.Sprintf("%s%s", src, CompressFormatTarZst))
+				if err != nil {
+					msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatTarZst), command)
+					_ = logger.Log(logger.LOGLEVEL_INFO, "", logger.ERRTYPE_FILE, msg)
 
-				// backward-compatibility to look for .zip file if .tar.zst is missing
+					// backward-compatibility to look for .zip file if .tar.zst is missing
+					info, err = os.Lstat(fmt.Sprintf("%s%s", src, CompressFormatZip))
+					if err != nil {
+						msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatZip), command)
+						return logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, msg)
+					}
+				}
+			default:
 				info, err = os.Lstat(fmt.Sprintf("%s%s", src, CompressFormatZip))
 				if err != nil {
 					msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatZip), command)
@@ -138,16 +148,30 @@ func getCache(src, dest, command, compressFormat string, compress bool) error {
 			}
 		}
 
-		if info.IsDir() {
-			srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatTarZst)
-			destPath = dest
-		} else {
-			srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatTarZst)
-			destPath = filepath.Dir(dest)
-		}
-		_, err = os.Lstat(srcZipPath)
-		if err != nil {
-			// backward-compatibility to look for .zip file if .tar.zst is missing
+		switch compressFormat {
+		case CompressFormatTarZst:
+			if info.IsDir() {
+				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatTarZst)
+				destPath = dest
+			} else {
+				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatTarZst)
+				destPath = filepath.Dir(dest)
+			}
+			_, err = os.Lstat(srcZipPath)
+			if err != nil {
+				// backward-compatibility to look for .zip file if .tar.zst is missing
+				if info.IsDir() {
+					srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatZip)
+					destPath = dest
+				} else {
+					srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatZip)
+					destPath = filepath.Dir(dest)
+				}
+				compressFormat = CompressFormatZip
+			} else {
+				compressFormat = CompressFormatTarZst
+			}
+		default:
 			if info.IsDir() {
 				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatZip)
 				destPath = dest
@@ -156,8 +180,6 @@ func getCache(src, dest, command, compressFormat string, compress bool) error {
 				destPath = filepath.Dir(dest)
 			}
 			compressFormat = CompressFormatZip
-		} else {
-			compressFormat = CompressFormatTarZst
 		}
 
 		switch compressFormat {
@@ -221,6 +243,7 @@ store cache in shared file server
 param - src         		source directory
 param - dest			destination directory
 param -	command			set
+param - compressFormat  .tar.zst / .zip
 param - compress		compress and store cache
 param - md5Check		compare md5 and store cache
 param - cacheMaxSizeInMB	max cache size limit allowed in MB
@@ -328,7 +351,8 @@ func setCache(src, dest, command, compressFormat string, compress, md5Check bool
 cache directories and files to/from shared storage
 param - command         	set, get or remove
 param - cacheScope     		pipeline, event, job
-param -	srcDir     		source directory
+param -	src     		source directory
+param - compressFormat  .tar.zst / .zip
 param - compress		compress and store cache
 param - md5Check		compare md5 and store cache
 param - cacheMaxSizeInMB	max cache size limit allowed in MB
