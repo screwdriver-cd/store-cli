@@ -12,6 +12,9 @@ import (
 	"strings"
 )
 
+const CompressFormatTarZst = ".tar.zst"
+const CompressFormatZip = ".zip"
+
 // taken and modified from https://stackoverflow.com/questions/32482673/how-to-get-directory-total-size
 /*
 get directory size recursive in bytes
@@ -110,7 +113,7 @@ param - compress		get compressed cache
 return - nil / error   		success - return nil; error - return error description
 */
 func getCache(src, dest, command, compressFormat string, compress bool) error {
-	var msg, srcZipPath, destPath, route string
+	var msg, srcZipPath, destPath string
 
 	_ = logger.Log(logger.LOGLEVEL_INFO, "", "", "get cache")
 	info, err := os.Lstat(src)
@@ -121,31 +124,31 @@ func getCache(src, dest, command, compressFormat string, compress bool) error {
 
 	if compress {
 		if err != nil {
-			info, err = os.Lstat(fmt.Sprintf("%s%s", src, ".tar.zst"))
+			info, err = os.Lstat(fmt.Sprintf("%s%s", src, CompressFormatTarZst))
 			if err != nil {
-				msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, ".tar.zst"), command)
+				msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatTarZst), command)
 				_ = logger.Log(logger.LOGLEVEL_INFO, "", logger.ERRTYPE_FILE, msg)
 
 				// backward-compatibility to look for .zip file if .tar.zst is missing
-				info, err = os.Lstat(fmt.Sprintf("%s%s", src, ".zip"))
+				info, err = os.Lstat(fmt.Sprintf("%s%s", src, CompressFormatZip))
 				if err != nil {
-					msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, ".zip"), command)
+					msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatZip), command)
 					return logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, msg)
 				} else {
-					route = "zip"
+					compressFormat = "zip"
 				}
 			} else {
-				route = "zst"
+				compressFormat = "zst"
 			}
 		}
 
-		switch route {
-		case "zst":
+		switch compressFormat {
+		case CompressFormatTarZst:
 			if info.IsDir() {
-				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), ".tar.zst")
+				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatTarZst)
 				destPath = dest
 			} else {
-				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), ".tar.zst")
+				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatTarZst)
 				destPath = filepath.Dir(dest)
 			}
 
@@ -170,16 +173,16 @@ func getCache(src, dest, command, compressFormat string, compress bool) error {
 
 		default:
 			if info.IsDir() {
-				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), ".zip")
+				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatZip)
 				destPath = dest
 			} else {
-				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), ".zip")
+				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatZip)
 				destPath = filepath.Dir(dest)
 			}
 
 			_ = os.MkdirAll(filepath.Dir(destPath), 0777)
 
-			targetZipPath := fmt.Sprintf("%s.zip", dest)
+			targetZipPath := fmt.Sprintf("%s%s", dest, CompressFormatZip)
 			if err = copy.Copy(srcZipPath, targetZipPath); err != nil {
 				return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_COPY, err)
 			}
@@ -265,8 +268,8 @@ func setCache(src, dest, command, compressFormat string, compress, md5Check bool
 
 	if compress {
 		switch compressFormat {
-		case "zst":
-			targetPath := fmt.Sprintf("%s.tar.zst", filepath.Join(destPath, destBase))
+		case CompressFormatTarZst:
+			targetPath := fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatTarZst)
 			cwd, err = os.Getwd()
 			if err != nil {
 				return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, err)
@@ -282,8 +285,8 @@ func setCache(src, dest, command, compressFormat string, compress, md5Check bool
 
 		default:
 			_ = logger.Log(logger.LOGLEVEL_INFO, "", "zip enabled")
-			srcZipPath := fmt.Sprintf("%s.zip", src)
-			targetZipPath := fmt.Sprintf("%s.zip", filepath.Join(destPath, destBase))
+			srcZipPath := fmt.Sprintf("%s%s", src, CompressFormatZip)
+			targetZipPath := fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatZip)
 			err = Zip(src, srcZipPath)
 			if err != nil {
 				msg = fmt.Sprintf("failed to zip files from %v to %v", src, srcZipPath)

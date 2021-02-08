@@ -37,6 +37,26 @@ func init() {
 
 	data2mb := make([]byte, 2097152)
 	_ = ioutil.WriteFile(filepath.Join(cacheMaxSize, "2mb"), data2mb, 0777)
+
+	removeCacheFolders()
+}
+
+func removeCacheFolders() {
+	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline", "job:SD_JOB_CACHE_DIR:../data/cache/job", "event:SD_EVENT_CACHE_DIR:../data/cache/event"}
+
+	for _, eachCacheScope := range cacheScope {
+		cache := strings.Split(eachCacheScope, ":")
+		cacheDir, _ := filepath.Abs(cache[2])
+		_ = os.RemoveAll(cacheDir)
+	}
+
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, "tmp/storecli/")
+	_ = os.RemoveAll(dir)
+}
+
+func removeMd5File(file string) {
+	_ = os.RemoveAll(file)
 }
 
 // test to validate invalid command
@@ -87,24 +107,16 @@ func Test_SetCache_wCompress_File_CherryPick(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
+				removeMd5File(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				// compress: true
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, true, true, 0) == nil)
-
-				switch compressFormat {
-				case "zst":
-					_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
-				default:
-					_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
-				}
+				_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), compressFormat)))
 				assert.Assert(t, err == nil)
-
 				_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				assert.Assert(t, err == nil)
 			}
@@ -124,25 +136,16 @@ func Test_SetCache_wCompress_File(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
+				removeMd5File(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				// compress: true
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, true, true, 0) == nil)
-
-				switch compressFormat {
-				case "zst":
-					_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
-				default:
-					_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
-				}
-
+				_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), compressFormat)))
 				assert.Assert(t, err == nil)
-
 				_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				assert.Assert(t, err == nil)
 			}
@@ -172,19 +175,10 @@ func Test_SetCache_wCompress_RewriteFile_NODELTA(t *testing.T) {
 
 				// compress: true
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, true, true, 0) == nil)
-
-				switch compressFormat {
-				case "zst":
-					info, _ = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
-					info, _ = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
-				default:
-					info, _ = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
-					info, _ = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
-				}
+				info, _ = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), compressFormat)))
+				fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat), info.ModTime().Unix())
+				info, _ = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
+				fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat), info.ModTime().Unix())
 				assert.Assert(t, info.ModTime().Unix() < currentTime)
 			}
 		}
@@ -230,13 +224,12 @@ func Test_SetCache_File_CherryPick(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
+				removeMd5File(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, ".md5")))
 				// compress: true
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, false, true, 0) == nil)
 
@@ -260,13 +253,12 @@ func Test_SetCache_File(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
+				removeMd5File(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, ".md5")))
 				// compress: true
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, false, true, 0) == nil)
 
@@ -281,6 +273,7 @@ func Test_SetCache_File(t *testing.T) {
 }
 
 func Test_SetCache_RewriteFile_NODELTA(t *testing.T) {
+	var info os.FileInfo
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline", "job:SD_JOB_CACHE_DIR:../data/cache/job", "event:SD_EVENT_CACHE_DIR:../data/cache/event"}
 	localCacheFolders := []string{"../data/cache/.m2/testfolder1/testfolder1.txt", "../data/cache/maxsize/2mb"}
 
@@ -303,21 +296,11 @@ func Test_SetCache_RewriteFile_NODELTA(t *testing.T) {
 				// compress: true
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, false, true, 0) == nil)
 
-				info, _ := os.Lstat(filepath.Join(cacheDir, local))
-				switch compressFormat {
-				case "zst":
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
-				default:
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
-				}
+				info, _ = os.Lstat(filepath.Join(cacheDir, local))
+				fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat), info.ModTime().Unix())
 				assert.Assert(t, info.ModTime().Unix() < currentTime)
 				info, _ = os.Lstat(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, ".md5")))
-				switch compressFormat {
-				case "zst":
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
-				default:
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
-				}
+				fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat), info.ModTime().Unix())
 				assert.Assert(t, info.ModTime().Unix() < currentTime)
 			}
 		}
@@ -334,13 +317,12 @@ func Test_SetCache_File_NoMD5Check(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
+				removeMd5File(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, ".md5")))
 				// compress: true
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, false, false, 0) == nil)
 
@@ -397,7 +379,7 @@ func Test_RemoveCache_File(t *testing.T) {
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
+				_ = os.RemoveAll(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				// compress: false
 				assert.Assert(t, Cache2Disk("remove", cache[0], local, compressFormat, false, true, 0) == nil)
 
@@ -422,25 +404,17 @@ func Test_SetCache_wCompress_NewFolder_CherryPick(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
+				removeMd5File(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				// compress: true
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, true, true, 0) == nil)
 
-				switch compressFormat {
-				case "zst":
-					_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
-				default:
-					_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
-				}
-
+				_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat)))
 				assert.Assert(t, err == nil)
-
 				_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				assert.Assert(t, err == nil)
 			}
@@ -491,25 +465,17 @@ func Test_SetCache_wCompress_NewFolder(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
+				removeMd5File(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				// compress: true
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, true, true, 0) == nil)
 
-				switch compressFormat {
-				case "zst":
-					_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
-				default:
-					_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
-				}
-
+				_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat)))
 				assert.Assert(t, err == nil)
-
 				_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				assert.Assert(t, err == nil)
 			}
@@ -536,28 +502,13 @@ func Test_SetCache_wCompress_RewriteFolder_NODELTA(t *testing.T) {
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, true, true, 0) == nil)
 
-				switch compressFormat {
-				case "zst":
-					info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
-				default:
-					info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
-				}
-
+				info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat)))
+				fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat), info.ModTime().Unix())
 				assert.Assert(t, info.ModTime().Unix() < currentTime)
-
 				info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
-
-				switch compressFormat {
-				case "zst":
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
-				default:
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
-				}
+				fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat), info.ModTime().Unix())
 				assert.Assert(t, info.ModTime().Unix() < currentTime)
 			}
 		}
@@ -653,14 +604,8 @@ func Test_RemoveCache_Folder_wCompress(t *testing.T) {
 				// compress: true
 				assert.Assert(t, Cache2Disk("remove", cache[0], local, compressFormat, true, true, 0) == nil)
 
-				switch compressFormat {
-				case "zst":
-					_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
-				default:
-					_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
-				}
+				_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat)))
 				assert.ErrorContains(t, err, "no such file or directory")
-
 				_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				assert.ErrorContains(t, err, "no such file or directory")
 			}
@@ -678,13 +623,12 @@ func Test_SetCache_NewFolder(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
+				removeMd5File(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				// compress: false
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, false, true, 0) == nil)
 
@@ -722,21 +666,10 @@ func Test_SetCache_RewriteFolder_NODELTA(t *testing.T) {
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, false, true, 0) == nil)
 
 				info, _ := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
-				switch compressFormat {
-				case "zst":
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
-				default:
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
-				}
+				fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat), info.ModTime().Unix())
 				assert.Assert(t, info.ModTime().Unix() < currentTime)
-
 				info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
-				switch compressFormat {
-				case "zst":
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst"), info.ModTime().Unix())
-				default:
-					fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), ".zip"), info.ModTime().Unix())
-				}
+				fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat), info.ModTime().Unix())
 				assert.Assert(t, info.ModTime().Unix() < currentTime)
 			}
 		}
@@ -753,13 +686,12 @@ func Test_SetCache_NewFolder_NoMD5Check(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
 				local, _ := filepath.Abs(eachFolder)
-
+				removeMd5File(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				// compress: false
 				assert.Assert(t, Cache2Disk("set", cache[0], local, compressFormat, false, false, 0) == nil)
 
@@ -877,7 +809,6 @@ func Test_SetCache_NewFolder_wCompress_wTilde(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for index, eachFolder := range tildeCacheFolders {
@@ -885,20 +816,15 @@ func Test_SetCache_NewFolder_wCompress_wTilde(t *testing.T) {
 				home, _ := os.UserHomeDir()
 				local := filepath.Join(home, strings.ReplaceAll(eachFolder, "~", ""))
 				actualLocal, _ := filepath.Abs(localCacheFolders[index])
+				removeMd5File(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				_ = copy2.Copy(actualLocal, local)
 				fmt.Printf("local tilde folder is [%s]", local)
 
 				// compress: false
 				assert.Assert(t, Cache2Disk("set", cache[0], eachFolder, compressFormat, true, true, 0) == nil)
 
-				switch compressFormat {
-				case "zst":
-					_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".tar.zst")))
-				default:
-					_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".zip")))
-				}
+				_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), compressFormat)))
 				assert.Assert(t, err == nil)
-
 				_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				assert.Assert(t, err == nil)
 			}
@@ -917,7 +843,6 @@ func Test_SetCache_NewFolder_wTilde(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for index, eachFolder := range tildeCacheFolders {
@@ -925,6 +850,7 @@ func Test_SetCache_NewFolder_wTilde(t *testing.T) {
 				home, _ := os.UserHomeDir()
 				local := filepath.Join(home, strings.ReplaceAll(eachFolder, "~", ""))
 				actualLocal, _ := filepath.Abs(localCacheFolders[index])
+				removeMd5File(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".md5")))
 				_ = copy2.Copy(actualLocal, local)
 				fmt.Printf("local tilde folder is [%s]", local)
 
@@ -951,7 +877,6 @@ func Test_SetCache_wCompress_MaxSizeError(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
@@ -976,7 +901,6 @@ func Test_SetCache_MaxSizeError(t *testing.T) {
 			_ = os.Setenv(cache[1], cache[2])
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
@@ -1004,22 +928,17 @@ func Test_SetCache_NewRelativeFolder_wCompress(t *testing.T) {
 			_ = os.Setenv(cache[1], ss)
 			cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
 			fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-			_ = os.RemoveAll(cacheDir)
 			_ = os.MkdirAll(cacheDir, 0777)
 
 			for _, eachFolder := range localCacheFolders {
 				fmt.Printf("local cache folder is [%s]\n", eachFolder)
+				removeMd5File(filepath.Join(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), ".md5"))))
 				home, _ := os.UserHomeDir()
 				dir := filepath.Join(home, "tmp")
 				os.Chdir(dir)
 				assert.Assert(t, Cache2Disk("set", cache[0], eachFolder, compressFormat, true, true, 0) == nil)
 
-				switch compressFormat {
-				case "zst":
-					_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), ".tar.zst")))
-				default:
-					_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), ".zip")))
-				}
+				_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), compressFormat)))
 				assert.Assert(t, err == nil)
 				_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), ".md5")))
 				assert.Assert(t, err == nil)
@@ -1058,15 +977,5 @@ func Test_GetCache_NewRelativeFolder_wCompress(t *testing.T) {
 }
 
 func Test_RemoveCache_Folders(t *testing.T) {
-	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline", "job:SD_JOB_CACHE_DIR:../data/cache/job", "event:SD_EVENT_CACHE_DIR:../data/cache/event"}
-
-	for _, eachCacheScope := range cacheScope {
-		cache := strings.Split(eachCacheScope, ":")
-		cacheDir, _ := filepath.Abs(cache[2])
-		_ = os.RemoveAll(cacheDir)
-	}
-
-	home, _ := os.UserHomeDir()
-	dir := filepath.Join(home, "tmp/storecli/")
-	_ = os.RemoveAll(dir)
+	removeCacheFolders()
 }
