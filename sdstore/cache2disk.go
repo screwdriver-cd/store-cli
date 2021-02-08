@@ -109,12 +109,11 @@ get cache from shared file server to local
 param - src         		source directory
 param - dest				destination directory
 param -	command				get
-param - compressFormat		.tar.zst / .zip
 param - compress			get compressed cache
 return - nil / error   		success - return nil; error - return error description
 */
-func getCache(src, dest, command, compressFormat string, compress bool) error {
-	var msg, srcZipPath, destPath string
+func getCache(src, dest, command string, compress bool) error {
+	var msg, srcZipPath, destPath, compressFormat string
 
 	_ = logger.Log(logger.LOGLEVEL_INFO, "", "", "get cache")
 	info, err := os.Lstat(src)
@@ -125,21 +124,12 @@ func getCache(src, dest, command, compressFormat string, compress bool) error {
 
 	if compress {
 		if err != nil {
-			switch compressFormat {
-			case CompressFormatTarZst:
-				info, err = os.Lstat(fmt.Sprintf("%s%s", src, CompressFormatTarZst))
-				if err != nil {
-					msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatTarZst), command)
-					_ = logger.Log(logger.LOGLEVEL_INFO, "", logger.ERRTYPE_FILE, msg)
+			info, err = os.Lstat(fmt.Sprintf("%s%s", src, CompressFormatTarZst))
+			if err != nil {
+				msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatTarZst), command)
+				_ = logger.Log(logger.LOGLEVEL_INFO, "", logger.ERRTYPE_FILE, msg)
 
-					// backward-compatibility to look for .zip file if .tar.zst is missing
-					info, err = os.Lstat(fmt.Sprintf("%s%s", src, CompressFormatZip))
-					if err != nil {
-						msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatZip), command)
-						return logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, msg)
-					}
-				}
-			default:
+				// backward-compatibility to look for .zip file if .tar.zst is missing
 				info, err = os.Lstat(fmt.Sprintf("%s%s", src, CompressFormatZip))
 				if err != nil {
 					msg = fmt.Sprintf("file check failed, for file %v, command %v", fmt.Sprintf("%s%s", src, CompressFormatZip), command)
@@ -148,30 +138,16 @@ func getCache(src, dest, command, compressFormat string, compress bool) error {
 			}
 		}
 
-		switch compressFormat {
-		case CompressFormatTarZst:
-			if info.IsDir() {
-				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatTarZst)
-				destPath = dest
-			} else {
-				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatTarZst)
-				destPath = filepath.Dir(dest)
-			}
-			_, err = os.Lstat(srcZipPath)
-			if err != nil {
-				// backward-compatibility to look for .zip file if .tar.zst is missing
-				if info.IsDir() {
-					srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatZip)
-					destPath = dest
-				} else {
-					srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatZip)
-					destPath = filepath.Dir(dest)
-				}
-				compressFormat = CompressFormatZip
-			} else {
-				compressFormat = CompressFormatTarZst
-			}
-		default:
+		if info.IsDir() {
+			srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatTarZst)
+			destPath = dest
+		} else {
+			srcZipPath = fmt.Sprintf("%s%s", filepath.Join(filepath.Dir(src), filepath.Base(src)), CompressFormatTarZst)
+			destPath = filepath.Dir(dest)
+		}
+		_, err = os.Lstat(srcZipPath)
+		if err != nil {
+			// backward-compatibility to look for .zip file if .tar.zst is missing
 			if info.IsDir() {
 				srcZipPath = fmt.Sprintf("%s%s", filepath.Join(src, filepath.Base(src)), CompressFormatZip)
 				destPath = dest
@@ -180,6 +156,8 @@ func getCache(src, dest, command, compressFormat string, compress bool) error {
 				destPath = filepath.Dir(dest)
 			}
 			compressFormat = CompressFormatZip
+		} else {
+			compressFormat = CompressFormatTarZst
 		}
 
 		switch compressFormat {
@@ -243,13 +221,12 @@ store cache in shared file server
 param - src         		source directory
 param - dest			destination directory
 param -	command			set
-param - compressFormat  .tar.zst / .zip
 param - compress		compress and store cache
 param - md5Check		compare md5 and store cache
 param - cacheMaxSizeInMB	max cache size limit allowed in MB
 return - nil / error   		success - return nil; error - return error description
 */
-func setCache(src, dest, command, compressFormat string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
+func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
 	var msg, md5Path, destPath, destBase, srcPath, srcFile, cwd string
 	var md5Status bool
 	var b int
@@ -292,37 +269,19 @@ func setCache(src, dest, command, compressFormat string, compress, md5Check bool
 	}
 
 	if compress {
-		switch compressFormat {
-		case CompressFormatTarZst:
-			targetPath := fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatTarZst)
-			cwd, err = os.Getwd()
-			if err != nil {
-				return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, err)
-			}
-			_ = os.MkdirAll(destPath, 0777)
-			cmd := fmt.Sprintf("cd %s && tar -c %s | zstd -T0 --fast > %s || true; cd %s", srcPath, srcFile, targetPath, cwd)
-			err = ExecuteCommand(cmd)
-			if err != nil {
-				msg = fmt.Sprintf("failed to compress files from %v", src)
-				return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, msg)
-			}
-			_ = os.Chmod(destPath, 0777)
-
-		default:
-			_ = logger.Log(logger.LOGLEVEL_INFO, "", "zip enabled")
-			srcZipPath := fmt.Sprintf("%s%s", src, CompressFormatZip)
-			targetZipPath := fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatZip)
-			err = Zip(src, srcZipPath)
-			if err != nil {
-				msg = fmt.Sprintf("failed to zip files from %v to %v", src, srcZipPath)
-				return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, msg)
-			}
-			_ = os.MkdirAll(destPath, 0777)
-			if err = copy.Copy(srcZipPath, targetZipPath); err != nil {
-				return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_COPY, err)
-			}
-			defer os.RemoveAll(srcZipPath)
+		targetPath := fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatTarZst)
+		cwd, err = os.Getwd()
+		if err != nil {
+			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, err)
 		}
+		_ = os.MkdirAll(destPath, 0777)
+		cmd := fmt.Sprintf("cd %s && tar -c %s | zstd -T0 --fast > %s || true; cd %s", srcPath, srcFile, targetPath, cwd)
+		err = ExecuteCommand(cmd)
+		if err != nil {
+			msg = fmt.Sprintf("failed to compress files from %v", src)
+			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, msg)
+		}
+		_ = os.Chmod(destPath, 0777)
 	} else {
 		if err = copy.Copy(src, dest); err != nil {
 			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_COPY, err)
@@ -352,13 +311,12 @@ cache directories and files to/from shared storage
 param - command         	set, get or remove
 param - cacheScope     		pipeline, event, job
 param -	src     		source directory
-param - compressFormat  .tar.zst / .zip
 param - compress		compress and store cache
 param - md5Check		compare md5 and store cache
 param - cacheMaxSizeInMB	max cache size limit allowed in MB
 return - nil / error   success - return nil; error - return error description
 */
-func Cache2Disk(command, cacheScope, src, compressFormat string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
+func Cache2Disk(command, cacheScope, src string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
 	var msg string
 	var err error
 
@@ -412,11 +370,10 @@ func Cache2Disk(command, cacheScope, src, compressFormat string, compress, md5Ch
 	cache := filepath.Join(baseCacheDir, src)
 	dest := cache
 
-	fmt.Println("Compress Format: ", compressFormat)
 	switch command {
 	case "set":
 		fmt.Printf("set cache -> {scope: %v, path: %v} \n", cacheScope, src)
-		if err = setCache(src, dest, command, compressFormat, compress, md5Check, cacheMaxSizeInMB); err != nil {
+		if err = setCache(src, dest, command, compress, md5Check, cacheMaxSizeInMB); err != nil {
 			return logger.Log(logger.LOGLEVEL_ERROR, "", "", fmt.Sprintf("set cache FAILED"))
 		}
 		fmt.Println("set cache SUCCESS")
@@ -424,7 +381,7 @@ func Cache2Disk(command, cacheScope, src, compressFormat string, compress, md5Ch
 		dest = src
 		src = cache
 		fmt.Printf("get cache -> {scope: %v, path: %v} \n", cacheScope, src)
-		if err = getCache(src, dest, command, compressFormat, compress); err != nil {
+		if err = getCache(src, dest, command, compress); err != nil {
 			logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("get cache FAILED"))
 		}
 	case "remove":
