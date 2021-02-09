@@ -298,7 +298,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 
 		// remove zip file if available
 		targetPath = fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatZip)
-		_ = os.RemoveAll(targetPath)
+		defer os.RemoveAll(targetPath)
 	} else {
 		if err = copy.Copy(src, dest); err != nil {
 			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_COPY, err)
