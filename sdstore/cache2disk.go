@@ -16,7 +16,7 @@ import (
 const CompressFormatTarZst = ".tar.zst"
 const CompressFormatZip = ".zip"
 
-// ZStandard binary from https://github.com/facebook/zstd
+// ZStandard from https://github.com/facebook/zstd
 // Test in mac - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz and set path
 // Test in linux - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz and set path
 func getZstdBinary() string {

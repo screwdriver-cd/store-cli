@@ -40,3 +40,11 @@ To use the `store-cli` tool for caching files and folders in your Screwdriver bu
 | job  | Cache accessible to all builds for the same job  |
 
 For example, if you want to cache the `node_modules` folder within the `event` scope, simply run `store-cli set node_modules/ --scope=event --type=cache` and `store-cli get node_modules/ --scope=event --type=cache` (to restore the cache).
+
+## Dependency
+
+store-cli has dependency on ZStandard (https://github.com/facebook/zstd)
+
+To test locally in download binaries from screwdrivercd bintray and set path
+    <li> mac   => download zstd-cli-macosx binary from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz 
+    <li> linux => download zstd-cli-linux binary from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz
