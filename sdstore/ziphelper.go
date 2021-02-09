@@ -2,9 +2,11 @@ package sdstore
 
 import (
 	"archive/zip"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
@@ -42,6 +44,9 @@ var compressedFormats = map[string]struct{}{
 }
 
 const ZiphelperModule = "ziphelper"
+
+// ExecCommand : os exec command
+var ExecCommand = exec.Command
 
 // Zip is repurposed from https://github.com/mholt/archiver/pull/92/files
 // To include support for symbolic links
@@ -221,7 +226,7 @@ func Unzip(src string, dest string) ([]string, error) {
 		}(file)
 
 		if err != nil {
-			logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
+			_ = logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, "", err)
 			return files, err
 		}
 		files = append(files, fPath)
@@ -241,4 +246,21 @@ func Unzip(src string, dest string) ([]string, error) {
 	}
 
 	return files, nil
+}
+
+// ExecuteCommand : Execute shell commands
+// return output => executing shell command succeeds
+// return error => for any error
+func ExecuteCommand(command string) error {
+	_ = logger.Log(logger.LOGLEVEL_INFO, ZiphelperModule, "executeCommand", command)
+	cmd := ExecCommand("sh", "-c", command)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil || strings.TrimSpace(stderr.String()) != "" {
+		return logger.Log(logger.LOGLEVEL_ERROR, ZiphelperModule, logger.ERRTYPE_COPY, fmt.Sprintf("run err: %v, command err: %v, command out: %v", err, stderr.String(), stdout.String()))
+	}
+	_ = logger.Log(logger.LOGLEVEL_INFO, ZiphelperModule, stdout.String())
+	return nil
 }
