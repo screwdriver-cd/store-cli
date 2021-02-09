@@ -295,6 +295,10 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, msg)
 		}
 		_ = os.Chmod(destPath, 0777)
+
+		// remove zip file if available
+		targetPath = fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatZip)
+		_ = os.RemoveAll(targetPath)
 	} else {
 		if err = copy.Copy(src, dest); err != nil {
 			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_COPY, err)

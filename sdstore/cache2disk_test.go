@@ -925,6 +925,13 @@ func Test_BackwardCompatibility_Zip_File(t *testing.T) {
 	assert.Assert(t, Cache2Disk("get", "pipeline", localFolder, true, true, 0) == nil)
 	_, err := os.Lstat(filepath.Join(filepath.Dir(localFolder), filepath.Base(localFolder)))
 	assert.Assert(t, err == nil)
+
+	// Test removing zip file as part of set
+	assert.Assert(t, Cache2Disk("set", "pipeline", localFolder, true, true, 0) == nil)
+	_, err = os.Lstat(filepath.Join(cacheFolder, "testfolder1.txt.zip"))
+	assert.Assert(t, err != nil)
+	_, err = os.Lstat(filepath.Join(cacheFolder, "testfolder1.txt.tar.zst"))
+	assert.Assert(t, err == nil)
 }
 
 func Test_RemoveCache_Folders(t *testing.T) {
