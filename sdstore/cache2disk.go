@@ -9,11 +9,24 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 )
 
 const CompressFormatTarZst = ".tar.zst"
 const CompressFormatZip = ".zip"
+
+// ZStandard binary from https://github.com/facebook/zstd
+// Test in mac - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz and set path
+// Test in linux - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz and set path
+func getZstdBinary() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "zstd-cli-macosx"
+	default:
+		return "zstd-cli-linux"
+	}
+}
 
 // taken and modified from https://stackoverflow.com/questions/32482673/how-to-get-directory-total-size
 /*
@@ -172,7 +185,7 @@ func getCache(src, dest, command string, compress bool) error {
 					return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, err)
 				}
 				_ = os.MkdirAll(destPath, 0777)
-				cmd := fmt.Sprintf("cd %s && zstd -cd -T0 --fast %s | tar xf - || true; cd %s", destPath, srcZipPath, cwd)
+				cmd := fmt.Sprintf("cd %s && %s -cd -T0 --fast %s | tar xf - || true; cd %s", destPath, getZstdBinary(), srcZipPath, cwd)
 				err = ExecuteCommand(cmd)
 				if err != nil {
 					msg = fmt.Sprintf("failed to compress files from %v", src)
@@ -275,7 +288,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, err)
 		}
 		_ = os.MkdirAll(destPath, 0777)
-		cmd := fmt.Sprintf("cd %s && tar -c %s | zstd -T0 --fast > %s || true; cd %s", srcPath, srcFile, targetPath, cwd)
+		cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 --fast > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), targetPath, cwd)
 		err = ExecuteCommand(cmd)
 		if err != nil {
 			msg = fmt.Sprintf("failed to compress files from %v", src)
