@@ -25,44 +25,6 @@ type result struct {
 
 const Md5helperModule = "md5helper"
 
-/*
-Get all files for given path
-param - path			file or folder path
-return - map[string]string / error	success - return meta map of files; error - return error description
-*/
-func getAllFiles(path string) (map[string]string, error) {
-	var metaMap = make(map[string]string)
-
-	err := godirwalk.Walk(path, &godirwalk.Options{
-		Callback: func(filePath string, de *godirwalk.Dirent) error {
-			if !de.ModeType().IsDir() {
-				stat, err := os.Stat(filePath)
-				if err == nil {
-					meta := fmt.Sprintf("%s %v %s %v %v %v", stat.Name(), stat.Size(), stat.ModTime(), stat.IsDir(), de.IsSymlink(), de.IsRegular())
-					metaMap[filePath] = meta
-				} else {
-					meta := fmt.Sprintf("%s", err)
-					metaMap[filePath] = meta
-				}
-			}
-			return nil
-		},
-		ErrorCallback: func(filePath string, err error) godirwalk.ErrorAction {
-			logger.Log(logger.LOGLEVEL_WARN, Md5helperModule, "", err)
-			return godirwalk.SkipNode
-		},
-		Unsorted:            false,
-		AllowNonDirectory:   true,
-		FollowSymbolicLinks: true,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return metaMap, err
-}
-
 func hashFromPath(filePath string) (string, error) {
 	var md5str string
 
@@ -157,11 +119,38 @@ func MD5All(root string) (map[string]string, error) {
 
 /*
 GenerateMeta reads files for given path, generates meta and returns metaMap or error
-param - path				file or folder path
-return - metamap / error	success - return metamap; error - return error description
+param - path			file or folder path
+return - map[string]string / error	success - return meta map of files; error - return error description
 */
-
 func GenerateMeta(path string) (map[string]string, error) {
-	metaMap, err := getAllFiles(path)
+	var metaMap = make(map[string]string)
+
+	err := godirwalk.Walk(path, &godirwalk.Options{
+		Callback: func(filePath string, de *godirwalk.Dirent) error {
+			if !de.ModeType().IsDir() {
+				stat, err := os.Stat(filePath)
+				if err == nil {
+					meta := fmt.Sprintf("%s %v %s %v %v %v", stat.Name(), stat.Size(), stat.ModTime(), stat.IsDir(), de.IsSymlink(), de.IsRegular())
+					metaMap[filePath] = meta
+				} else {
+					meta := fmt.Sprintf("%s", err)
+					metaMap[filePath] = meta
+				}
+			}
+			return nil
+		},
+		ErrorCallback: func(filePath string, err error) godirwalk.ErrorAction {
+			logger.Log(logger.LOGLEVEL_WARN, Md5helperModule, "", err)
+			return godirwalk.SkipNode
+		},
+		Unsorted:            false,
+		AllowNonDirectory:   true,
+		FollowSymbolicLinks: true,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
 	return metaMap, err
 }
