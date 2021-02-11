@@ -11,6 +11,11 @@ jobs:
         steps:
             - vet: go vet ./...
             - gofmt: ret=$(find . -name '*.go' | xargs gofmt -d) && echo "$ret" && test -z "$ret"
+            - pretest-setup: |
+                wget -q -O zstd-cli-linux.tar.gz 'https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz'
+                tar -C . -ozxvf zstd-cli-linux.tar.gz
+                chmod +x zstd-cli-linux
+                cp zstd-cli-linux /usr/local/bin
             - test-setup: go get gotest.tools/gotestsum@v0.6.0
             - test: gotestsum --format testname --jsonfile ${SD_ARTIFACTS_DIR}/report.json -- -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out ./...
             - build: go build -a -o store-cli
