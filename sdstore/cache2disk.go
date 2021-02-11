@@ -194,7 +194,7 @@ func getCache(src, dest, command string, compress bool) error {
 				err = ExecuteCommand(cmd)
 				if err != nil {
 					msg = fmt.Sprintf("failed to decompress files from %v", src)
-					return logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_ZIP, msg)
+					return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, msg)
 				}
 				_ = os.Chmod(destPath, 0777)
 			}
