@@ -1,12 +1,14 @@
 package sdstore
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/otiai10/copy"
 	"github.com/screwdriver-cd/store-cli/logger"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -16,6 +18,26 @@ import (
 
 const CompressFormatTarZst = ".tar.zst"
 const CompressFormatZip = ".zip"
+
+// ExecCommand : os exec command
+var ExecCommand = exec.Command
+
+// ExecuteCommand : Execute shell commands
+// return output => executing shell command succeeds
+// return error => for any error
+func ExecuteCommand(command string) error {
+	_ = logger.Log(logger.LOGLEVEL_INFO, ZiphelperModule, "executeCommand", command)
+	cmd := ExecCommand("sh", "-c", command)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil || strings.TrimSpace(stderr.String()) != "" {
+		return logger.Log(logger.LOGLEVEL_ERROR, "", "", fmt.Sprintf("run err: %v, command err: %v, command out: %v", err, stderr.String(), stdout.String()))
+	}
+	_ = logger.Log(logger.LOGLEVEL_INFO, "", stdout.String())
+	return nil
+}
 
 // ZStandard from https://github.com/facebook/zstd
 // To test in mac locally - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz and set path
@@ -61,38 +83,38 @@ func getSizeInBytes(path string) int64 {
 }
 
 /*
-compare md5 for source and destination directories
+compare metadata of files for source and destination directories
 param - src         		source directory
-param - dest			all directory but the last element of path
-param - destBase		last element of destination directory
-return - bytearray / bool   	return md5 byte array, bool - true (md5 same) / false (md5 changed)
+param - dest				all directory but the last element of path
+param - destBase			last element of destination directory
+return - bytearray / bool   return md5 byte array, bool - true (md5 same) / false (md5 changed)
 */
-func checkMd5(src, dest, destBase string) ([]byte, bool) {
-	var msg, oldMd5FilePath string
-	var oldMd5 map[string]string
-	var newMd5 map[string]string
+func checkMeta(src, dest, destBase string) ([]byte, bool) {
+	var msg, oldMetaFilePath string
+	var oldMeta map[string]string
+	var newMeta map[string]string
 
 	_ = logger.Log(logger.LOGLEVEL_INFO, "", "start md5 check")
-	oldMd5FilePath = filepath.Join(dest, fmt.Sprintf("%s%s", destBase, ".md5"))
-	oldMd5File, err := ioutil.ReadFile(oldMd5FilePath)
+	oldMetaFilePath = filepath.Join(dest, fmt.Sprintf("%s%s", destBase, ".md5"))
+	oldMetaFile, err := ioutil.ReadFile(oldMetaFilePath)
 	if err != nil {
-		oldMd5File = []byte("")
+		oldMetaFile = []byte("")
 		msg = fmt.Sprintf("%v, not able to get %s.md5 from: %s", err, destBase, dest)
 		_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, msg)
 	}
-	_ = json.Unmarshal(oldMd5File, &oldMd5)
+	_ = json.Unmarshal(oldMetaFile, &oldMeta)
 
 	t1 := time.Now()
-	if newMd5, err = GenerateMd5(src); err != nil {
+	if newMeta, err = GenerateMeta(src); err != nil {
 		msg = fmt.Sprintf("not able to generate md5 for directory: %s", src)
 		_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_MD5, msg)
 	}
 	t2 := time.Now()
 	msg = fmt.Sprintf("time taken to generate new md5: %v", t2.Sub(t1))
 	_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, msg)
-	md5Json, _ := json.Marshal(newMd5)
+	md5Json, _ := json.Marshal(newMeta)
 
-	if reflect.DeepEqual(oldMd5, newMd5) {
+	if reflect.DeepEqual(oldMeta, newMeta) {
 		return md5Json, true
 	} else {
 		return md5Json, false
@@ -193,8 +215,8 @@ func getCache(src, dest, command string, compress bool) error {
 				cmd := fmt.Sprintf("cd %s && %s -cd -T0 --fast %s | tar xf - || true; cd %s", destPath, getZstdBinary(), srcZipPath, cwd)
 				err = ExecuteCommand(cmd)
 				if err != nil {
-					msg = fmt.Sprintf("failed to decompress files from %v", src)
-					return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, msg)
+					msg = fmt.Sprintf("error decompressing files from %v", src)
+					_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_ZIP, msg)
 				}
 				_ = os.Chmod(destPath, 0777)
 			}
@@ -240,15 +262,15 @@ param - src         		source directory
 param - dest			destination directory
 param -	command			set
 param - compress		compress and store cache
-param - md5Check		compare md5 and store cache
+param - metaCheck		compare md5 and store cache
 param - cacheMaxSizeInMB	max cache size limit allowed in MB
 return - nil / error   		success - return nil; error - return error description
 */
-func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeInMB int64) error {
-	var msg, md5Path, destPath, destBase, srcPath, srcFile, cwd string
-	var md5Status bool
+func setCache(src, dest, command string, compress, metaCheck bool, cacheMaxSizeInMB int64) error {
+	var msg, metaPath, destPath, destBase, srcPath, srcFile, cwd string
+	var metaStatus bool
 	var b int
-	var md5Json []byte
+	var metaJson []byte
 	var err error
 	var jsonFile *os.File
 
@@ -278,10 +300,10 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 		_ = logger.Log(logger.LOGLEVEL_INFO, "", fmt.Sprintf("source directory size %vB, allowed max limit %vB", sizeInBytes, cacheMaxSizeInBytes))
 	}
 
-	_ = logger.Log(logger.LOGLEVEL_INFO, "", fmt.Sprintf("md5Check %v", md5Check))
-	if md5Check {
-		md5Json, md5Status = checkMd5(src, destPath, destBase)
-		if md5Status {
+	_ = logger.Log(logger.LOGLEVEL_INFO, "", fmt.Sprintf("metaCheck %v", metaCheck))
+	if metaCheck {
+		metaJson, metaStatus = checkMeta(src, destPath, destBase)
+		if metaStatus {
 			return logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("source %s and destination %s directories are same, aborting", src, dest))
 		}
 	}
@@ -310,17 +332,17 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 		}
 	}
 
-	if md5Check {
-		md5Path = filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".md5"))
-		jsonFile, err = os.OpenFile(md5Path, os.O_CREATE|os.O_WRONLY, 0777)
+	if metaCheck {
+		metaPath = filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".md5"))
+		jsonFile, err = os.OpenFile(metaPath, os.O_CREATE|os.O_WRONLY, 0777)
 		if err != nil {
-			_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_MD5, fmt.Sprintf("not able to create %v file", md5Path))
+			_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_MD5, fmt.Sprintf("not able to create %v file", metaPath))
 		} else {
 			defer jsonFile.Close()
-			if b, err = jsonFile.Write(md5Json); err != nil {
+			if b, err = jsonFile.Write(metaJson); err != nil {
 				_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_MD5, fmt.Sprintf("failed to write %v.md5 file to destination %v", destBase, destPath))
 			} else {
-				jsonFile.Sync()
+				_ = jsonFile.Sync()
 				_ = logger.Log(logger.LOGLEVEL_INFO, "", "", fmt.Sprintf("wrote %d bytes of %v.md5 file to destination %v", b, destBase, destPath))
 			}
 		}
@@ -404,7 +426,7 @@ func Cache2Disk(command, cacheScope, src string, compress, md5Check bool, cacheM
 		src = cache
 		fmt.Printf("get cache -> {scope: %v, path: %v} \n", cacheScope, src)
 		if err = getCache(src, dest, command, compress); err != nil {
-			logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("get cache FAILED"))
+			_ = logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("get cache FAILED"))
 		}
 	case "remove":
 		fmt.Printf("remove cache -> {scope: %v, path: %v} \n", cacheScope, src)
@@ -414,7 +436,7 @@ func Cache2Disk(command, cacheScope, src string, compress, md5Check bool, cacheM
 
 		if err != nil {
 			fmt.Printf("error: %v\n", err)
-			logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("error: %v", err))
+			_ = logger.Log(logger.LOGLEVEL_WARN, "", "", fmt.Sprintf("error: %v", err))
 		} else {
 			if !info.IsDir() {
 				destPath = filepath.Dir(dest)

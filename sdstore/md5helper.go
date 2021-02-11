@@ -8,10 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/karrick/godirwalk"
-	"github.com/pieterclaerhout/go-waitgroup"
 	"github.com/screwdriver-cd/store-cli/logger"
 	"io"
-	"strconv"
 	// "math"
 	"os"
 	"path/filepath"
@@ -27,51 +25,33 @@ type result struct {
 
 const Md5helperModule = "md5helper"
 
-// getEnv get key environment variable if exist otherwise return defaultValue
-func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if len(value) == 0 {
-		return defaultValue
-	}
-	return value
-}
-
-// get md5Hash for given file
-func getMd5Hash(filePath string) (string, int64, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", 0, err
-	}
-	md5hash := md5.New()
-	b, err := io.Copy(md5hash, file)
-	file.Close()
-	if err != nil {
-		return "", 0, err
-	}
-
-	md5hashInBytes := md5hash.Sum(nil)[:16]
-	md5str := hex.EncodeToString(md5hashInBytes)
-	return md5str, b, err
-}
-
 /*
 Get all files for given path
 param - path			file or folder path
-return - []string / error	success - return array of filepath; error - return error description
+return - map[string]string / error	success - return meta map of files; error - return error description
 */
-func getAllFiles(path string) ([]string, error) {
-	var s []string
+func getAllFiles(path string) (map[string]string, error) {
+	var metaMap = make(map[string]string)
+
 	err := godirwalk.Walk(path, &godirwalk.Options{
 		Callback: func(filePath string, de *godirwalk.Dirent) error {
 			if !de.ModeType().IsDir() {
-				s = append(s, filePath)
+				stat, err := os.Stat(filePath)
+				if err == nil {
+					meta := fmt.Sprintf("%s %v %s %v %v %v", stat.Name(), stat.Size(), stat.ModTime(), stat.IsDir(), de.IsSymlink(), de.IsRegular())
+					metaMap[filePath] = meta
+				} else {
+					meta := fmt.Sprintf("%s", err)
+					metaMap[filePath] = meta
+				}
 			}
 			return nil
 		},
 		ErrorCallback: func(filePath string, err error) godirwalk.ErrorAction {
+			logger.Log(logger.LOGLEVEL_WARN, Md5helperModule, "", err)
 			return godirwalk.SkipNode
 		},
-		Unsorted:            true,
+		Unsorted:            false,
 		AllowNonDirectory:   true,
 		FollowSymbolicLinks: true,
 	})
@@ -79,7 +59,8 @@ func getAllFiles(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s, err
+
+	return metaMap, err
 }
 
 func hashFromPath(filePath string) (string, error) {
@@ -175,33 +156,12 @@ func MD5All(root string) (map[string]string, error) {
 }
 
 /*
-GenerateMd5 reads files for given path, generates Md5 and returns ms5map or error
-param - path		file or folder path
-return - md5map / error	success - return md5map; error - return error description
+GenerateMeta reads files for given path, generates meta and returns metaMap or error
+param - path				file or folder path
+return - metamap / error	success - return metamap; error - return error description
 */
 
-func GenerateMd5(path string) (map[string]string, error) {
-	var rwm sync.RWMutex
-	md5Map := make(map[string]string)
-	maxGoThreads, _ := strconv.Atoi(getEnv("SD_CACHE_MAX_GO_THREADS", "10000"))
-	wg := waitgroup.NewWaitGroup(maxGoThreads)
-
-	files, err := getAllFiles(path)
-	if err != nil {
-		return nil, err
-	}
-	msg := fmt.Sprintf("total files: %d\n", len(files))
-	logger.Log(logger.LOGLEVEL_INFO, Md5helperModule, "", msg)
-	for _, name := range files {
-		wg.BlockAdd()
-		go func(f string) {
-			md5str, b, err := getMd5Hash(f)
-			rwm.Lock()
-			md5Map[f] = fmt.Sprintf("%v,%d,%v", md5str, b, err)
-			rwm.Unlock()
-			wg.Done()
-		}(name)
-	}
-	wg.Wait()
-	return md5Map, err
+func GenerateMeta(path string) (map[string]string, error) {
+	metaMap, err := getAllFiles(path)
+	return metaMap, err
 }
