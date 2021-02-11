@@ -297,7 +297,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 		err = ExecuteCommand(cmd)
 		if err != nil {
 			msg = fmt.Sprintf("failed to compress files from %v", src)
-			return logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_ZIP, msg)
+			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, msg)
 		}
 		_ = os.Chmod(destPath, 0777)
 
