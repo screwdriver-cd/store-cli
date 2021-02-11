@@ -11,14 +11,15 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"time"
 )
 
 const CompressFormatTarZst = ".tar.zst"
 const CompressFormatZip = ".zip"
 
 // ZStandard from https://github.com/facebook/zstd
-// Test in mac - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz and set path
-// Test in linux - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz and set path
+// To test in mac locally - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz and set path
+// To test in linux locally - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz and set path
 func getZstdBinary() string {
 	switch runtime.GOOS {
 	case "darwin":
@@ -81,10 +82,14 @@ func checkMd5(src, dest, destBase string) ([]byte, bool) {
 	}
 	_ = json.Unmarshal(oldMd5File, &oldMd5)
 
+	t1 := time.Now()
 	if newMd5, err = GenerateMd5(src); err != nil {
 		msg = fmt.Sprintf("not able to generate md5 for directory: %s", src)
 		_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_MD5, msg)
 	}
+	t2 := time.Now()
+	msg = fmt.Sprintf("time taken to generate new md5: %v", t2.Sub(t1))
+	_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, msg)
 	md5Json, _ := json.Marshal(newMd5)
 
 	if reflect.DeepEqual(oldMd5, newMd5) {
@@ -188,8 +193,8 @@ func getCache(src, dest, command string, compress bool) error {
 				cmd := fmt.Sprintf("cd %s && %s -cd -T0 --fast %s | tar xf - || true; cd %s", destPath, getZstdBinary(), srcZipPath, cwd)
 				err = ExecuteCommand(cmd)
 				if err != nil {
-					msg = fmt.Sprintf("failed to compress files from %v", src)
-					return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, msg)
+					msg = fmt.Sprintf("failed to decompress files from %v", src)
+					return logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_ZIP, msg)
 				}
 				_ = os.Chmod(destPath, 0777)
 			}
@@ -292,7 +297,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 		err = ExecuteCommand(cmd)
 		if err != nil {
 			msg = fmt.Sprintf("failed to compress files from %v", src)
-			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, msg)
+			return logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_ZIP, msg)
 		}
 		_ = os.Chmod(destPath, 0777)
 

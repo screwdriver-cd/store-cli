@@ -8,25 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/karrick/godirwalk"
+	"github.com/pieterclaerhout/go-waitgroup"
+	"github.com/screwdriver-cd/store-cli/logger"
 	"io"
 	"strconv"
-
 	// "math"
 	"os"
 	"path/filepath"
 	"sync"
-
-	"github.com/pieterclaerhout/go-waitgroup"
-	"github.com/screwdriver-cd/store-cli/logger"
 )
-
-// md5Hash struct with file, md5, total bytes, error
-type md5Hash struct {
-	file string
-	sum  string
-	b    int64
-	err  error
-}
 
 // A result is the product of reading and summing a file using MD5.
 type result struct {
@@ -48,22 +38,19 @@ func getEnv(key, defaultValue string) string {
 
 // get md5Hash for given file
 func getMd5Hash(filePath string) (string, int64, error) {
-	var md5str string
-
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", 0, err
 	}
-	defer file.Close()
-
 	md5hash := md5.New()
 	b, err := io.Copy(md5hash, file)
+	file.Close()
 	if err != nil {
 		return "", 0, err
 	}
 
 	md5hashInBytes := md5hash.Sum(nil)[:16]
-	md5str = hex.EncodeToString(md5hashInBytes)
+	md5str := hex.EncodeToString(md5hashInBytes)
 	return md5str, b, err
 }
 
@@ -76,13 +63,12 @@ func getAllFiles(path string) ([]string, error) {
 	var s []string
 	err := godirwalk.Walk(path, &godirwalk.Options{
 		Callback: func(filePath string, de *godirwalk.Dirent) error {
-			if !de.ModeType().IsDir() && de.ModeType().IsRegular() {
+			if !de.ModeType().IsDir() {
 				s = append(s, filePath)
 			}
 			return nil
 		},
 		ErrorCallback: func(filePath string, err error) godirwalk.ErrorAction {
-			fmt.Printf("error %v in walking directory %s", err, filePath)
 			return godirwalk.SkipNode
 		},
 		Unsorted:            true,
@@ -103,11 +89,10 @@ func hashFromPath(filePath string) (string, error) {
 	if err != nil {
 		return md5str, err
 	}
-
-	defer file.Close()
-
 	md5hash := md5.New()
-	if _, err := io.Copy(md5hash, file); err != nil {
+	_, err = io.Copy(md5hash, file)
+	file.Close()
+	if err != nil {
 		return md5str, err
 	}
 
@@ -115,7 +100,6 @@ func hashFromPath(filePath string) (string, error) {
 	md5str = hex.EncodeToString(md5hashInBytes)
 
 	return md5str, nil
-
 }
 
 // sumFiles starts goroutines to walk the directory tree at root and digest each
@@ -195,6 +179,7 @@ GenerateMd5 reads files for given path, generates Md5 and returns ms5map or erro
 param - path		file or folder path
 return - md5map / error	success - return md5map; error - return error description
 */
+
 func GenerateMd5(path string) (map[string]string, error) {
 	var rwm sync.RWMutex
 	md5Map := make(map[string]string)
@@ -212,8 +197,8 @@ func GenerateMd5(path string) (map[string]string, error) {
 		go func(f string) {
 			md5str, b, err := getMd5Hash(f)
 			rwm.Lock()
-			defer rwm.Unlock()
 			md5Map[f] = fmt.Sprintf("%v,%d,%v", md5str, b, err)
+			rwm.Unlock()
 			wg.Done()
 		}(name)
 	}
