@@ -6,11 +6,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
-	"fmt"
-	"github.com/karrick/godirwalk"
-	"github.com/screwdriver-cd/store-cli/logger"
 	"io"
-	// "math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -22,8 +18,6 @@ type result struct {
 	sum  string
 	err  error
 }
-
-const Md5helperModule = "md5helper"
 
 func hashFromPath(filePath string) (string, error) {
 	var md5str string
@@ -115,42 +109,4 @@ func MD5All(root string) (map[string]string, error) {
 		return nil, err
 	}
 	return m, nil
-}
-
-/*
-GenerateMeta reads files for given path, generates meta and returns metaMap or error
-param - path			file or folder path
-return - map[string]string / error	success - return meta map of files; error - return error description
-*/
-func GenerateMeta(path string) (map[string]string, error) {
-	var metaMap = make(map[string]string)
-
-	err := godirwalk.Walk(path, &godirwalk.Options{
-		Callback: func(filePath string, de *godirwalk.Dirent) error {
-			if !de.ModeType().IsDir() {
-				stat, err := os.Stat(filePath)
-				if err == nil {
-					meta := fmt.Sprintf("%s %v %s %v %v %v", stat.Name(), stat.Size(), stat.ModTime(), stat.IsDir(), de.IsSymlink(), de.IsRegular())
-					metaMap[filePath] = meta
-				} else {
-					meta := fmt.Sprintf("%s", err)
-					metaMap[filePath] = meta
-				}
-			}
-			return nil
-		},
-		ErrorCallback: func(filePath string, err error) godirwalk.ErrorAction {
-			logger.Log(logger.LOGLEVEL_WARN, Md5helperModule, "", err)
-			return godirwalk.SkipNode
-		},
-		Unsorted:            false,
-		AllowNonDirectory:   true,
-		FollowSymbolicLinks: true,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return metaMap, err
 }
