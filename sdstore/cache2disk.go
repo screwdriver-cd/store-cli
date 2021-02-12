@@ -65,7 +65,7 @@ func getMetadataInfo(path string) (map[string]string, int64) {
 			return nil
 		}
 		if !file.IsDir() {
-			meta := fmt.Sprintf("%s %v %s %v %v", file.Name(), file.Size(), file.ModTime(), file.IsDir(), file.Mode())
+			meta := fmt.Sprintf("%v %s %v %v", file.Size(), file.ModTime(), file.IsDir(), file.Mode())
 			metaMap[path] = meta
 			sizes <- file.Size()
 		}
