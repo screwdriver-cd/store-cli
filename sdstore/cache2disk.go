@@ -315,7 +315,7 @@ func setCache(src, dest, command string, compress, metaDataCheck bool, cacheMaxS
 			msg = fmt.Sprintf("failed to compress files from %v", src)
 			return logger.Log(logger.LOGLEVEL_ERROR, "", logger.ERRTYPE_ZIP, msg)
 		}
-		_ = os.Chmod(destPath, 0777)
+		_ = os.Chmod(targetPath, 0777)
 
 		// remove zip file if available
 		targetPath = fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatZip)
