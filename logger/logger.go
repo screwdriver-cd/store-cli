@@ -19,7 +19,7 @@ const (
 	ERRTYPE_SCOPE        = "scope"
 	ERRTYPE_COMMAND      = "command"
 	ERRTYPE_FILE         = "file"
-	ERRTYPE_MD5          = "md5"
+	ERRTYPE_META         = "meta"
 	ERRTYPE_ZIP          = "zip"
 	ERRTYPE_MAXSIZELIMIT = "maxsizelimit"
 )

@@ -90,35 +90,35 @@ compare metadata of files for source and destination directories
 param - newMeta         	metadata of source
 param - dest				all directory but the last element of path
 param - destBase			last element of destination directory
-return - bytearray / bool   return md5 byte array, bool - true (md5 same) / false (md5 changed)
+return - bytearray / bool   return meta byte array, bool - true (meta same) / false (meta changed)
 */
 func compareMetadata(newMeta map[string]string, dest, destBase string) ([]byte, bool) {
 	var msg, oldMetaFilePath string
 	var oldMeta map[string]string
 
 	_ = logger.Log(logger.LOGLEVEL_INFO, "", "start metadata check")
-	oldMetaFilePath = filepath.Join(dest, fmt.Sprintf("%s%s", destBase, ".md5"))
+	oldMetaFilePath = filepath.Join(dest, fmt.Sprintf("%s%s", destBase, ".meta"))
 	oldMetaFile, err := ioutil.ReadFile(oldMetaFilePath)
 	if err != nil {
 		oldMetaFile = []byte("")
-		msg = fmt.Sprintf("%v, not able to get %s.md5 from: %s", err, destBase, dest)
+		msg = fmt.Sprintf("%v, not able to get %s%s from: %s", err, destBase, ".meta", dest)
 		_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, msg)
 	}
 	_ = json.Unmarshal(oldMetaFile, &oldMeta)
 
-	md5Json, _ := json.Marshal(newMeta)
+	metaJson, _ := json.Marshal(newMeta)
 
 	if reflect.DeepEqual(oldMeta, newMeta) {
-		return md5Json, true
+		return metaJson, true
 	} else {
-		return md5Json, false
+		return metaJson, false
 	}
 }
 
 /*
 remove cache directory from shared file server
 param - path			cache path
-param - md5Path			md5 path
+param - metaPath		meta path
 param -	command			set or remove
 return - nothing
 */
@@ -129,7 +129,7 @@ func removeCacheDirectory(path, metaPath string) {
 		_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("error: %v\n", err))
 	} else {
 		if err := os.RemoveAll(metaPath); err != nil {
-			_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("failed to clean out %v.md5 file: %v", filepath.Base(path), metaPath))
+			_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_FILE, fmt.Sprintf("failed to clean out %v%s file: %v", filepath.Base(path), ".meta", metaPath))
 		}
 
 		if err := os.RemoveAll(path); err != nil {
@@ -236,7 +236,7 @@ func getCache(src, dest, command string, compress bool) error {
 			defer os.RemoveAll(targetZipPath)
 
 			if info.IsDir() {
-				defer os.RemoveAll(filepath.Join(dest, fmt.Sprintf("%s%s", filepath.Base(dest), ".md5")))
+				defer os.RemoveAll(filepath.Join(dest, fmt.Sprintf("%s%s", filepath.Base(dest), ".meta")))
 			}
 		}
 	} else {
@@ -328,19 +328,22 @@ func setCache(src, dest, command string, compress, metaDataCheck bool, cacheMaxS
 	}
 
 	if metaDataCheck {
-		metaPath = filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".md5"))
+		metaPath = filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".meta"))
 		jsonFile, err = os.OpenFile(metaPath, os.O_CREATE|os.O_WRONLY, 0777)
 		if err != nil {
-			_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_MD5, fmt.Sprintf("not able to create %v file", metaPath))
+			_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_META, fmt.Sprintf("not able to create %v file", metaPath))
 		} else {
 			defer jsonFile.Close()
 			if b, err = jsonFile.Write(metaJson); err != nil {
-				_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_MD5, fmt.Sprintf("failed to write %v.md5 file to destination %v", destBase, destPath))
+				_ = logger.Log(logger.LOGLEVEL_WARN, "", logger.ERRTYPE_META, fmt.Sprintf("failed to write %v%s file to destination %v", destBase, ".meta", destPath))
 			} else {
 				_ = jsonFile.Sync()
-				_ = logger.Log(logger.LOGLEVEL_INFO, "", "", fmt.Sprintf("wrote %d bytes of %v.md5 file to destination %v", b, destBase, destPath))
+				_ = logger.Log(logger.LOGLEVEL_INFO, "", "", fmt.Sprintf("wrote %d bytes of %v%s file to destination %v", b, destBase, ".meta", destPath))
 			}
 		}
+		// remove old md5 file if available
+		targetPath := filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".md5"))
+		defer os.RemoveAll(targetPath)
 	}
 	return nil
 }
@@ -438,7 +441,7 @@ func Cache2Disk(command, cacheScope, src string, compress, metaDataCheck bool, c
 				destBase = filepath.Base(dest)
 			}
 
-			removeCacheDirectory(dest, filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".md5")))
+			removeCacheDirectory(dest, filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, ".meta")))
 		}
 		fmt.Println("remove cache SUCCESS")
 	}
