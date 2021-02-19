@@ -9,19 +9,19 @@ import (
 var logger = log.WithFields(log.Fields{"app": "store-cli"})
 
 const (
-	LOGLEVEL_ERROR = log.ErrorLevel
-	LOGLEVEL_WARN  = log.WarnLevel
-	LOGLEVEL_INFO  = log.InfoLevel
+	LoglevelError = log.ErrorLevel
+	LoglevelWarn  = log.WarnLevel
+	LoglevelInfo  = log.InfoLevel
 )
 
 const (
-	ERRTYPE_COPY         = "copy"
-	ERRTYPE_SCOPE        = "scope"
-	ERRTYPE_COMMAND      = "command"
-	ERRTYPE_FILE         = "file"
-	ERRTYPE_META         = "meta"
-	ERRTYPE_ZIP          = "zip"
-	ERRTYPE_MAXSIZELIMIT = "maxsizelimit"
+	ErrtypeCopy         = "copy"
+	ErrtypeScope        = "scope"
+	ErrtypeCommand      = "command"
+	ErrtypeFile         = "file"
+	ErrtypeMd5          = "md5"
+	ErrtypeZip          = "zip"
+	ErrtypeMaxsizelimit = "maxsizelimit"
 )
 
 func init() {
