@@ -358,7 +358,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 
 	if md5Check {
 		md5Path = filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, Md5Extension))
-		md5File, err = os.OpenFile(md5Path, os.O_CREATE|os.O_WRONLY, 0777)
+		md5File, err = os.OpenFile(md5Path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
 		if err != nil {
 			_ = logger.Log(logger.LoglevelWarn, "", logger.ErrtypeMd5, fmt.Sprintf("not able to create %v file", md5Path))
 		} else {
