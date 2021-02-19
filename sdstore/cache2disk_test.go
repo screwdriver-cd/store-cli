@@ -108,7 +108,7 @@ func Test_SetCache_wCompress_File_CherryPick(t *testing.T) {
 			assert.Assert(t, Cache2Disk("set", cache[0], local, true, true, 0) == nil)
 			_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), CompressFormat)))
 			assert.Assert(t, err == nil)
-			_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.Assert(t, err == nil)
 		}
 	}
@@ -135,7 +135,7 @@ func Test_SetCache_wCompress_File(t *testing.T) {
 			assert.Assert(t, Cache2Disk("set", cache[0], local, true, true, 0) == nil)
 			_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), CompressFormat)))
 			assert.Assert(t, err == nil)
-			_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.Assert(t, err == nil)
 		}
 	}
@@ -162,7 +162,7 @@ func Test_SetCache_wCompress_RewriteFile_NODELTA(t *testing.T) {
 
 			// compress: true
 			assert.Assert(t, Cache2Disk("set", cache[0], local, true, true, 0) == nil)
-			info, _ = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			info, _ = os.Lstat(filepath.Join(cacheDir, filepath.Dir(local), fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 		}
 	}
@@ -216,7 +216,7 @@ func Test_SetCache_File_CherryPick(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(cacheDir, local))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, Md5Extension)))
 			assert.Assert(t, err == nil)
 		}
 	}
@@ -243,7 +243,7 @@ func Test_SetCache_File(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(cacheDir, local))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, Md5Extension)))
 			assert.Assert(t, err == nil)
 		}
 	}
@@ -271,7 +271,7 @@ func Test_SetCache_RewriteFile_NODELTA(t *testing.T) {
 
 			// compress: true
 			assert.Assert(t, Cache2Disk("set", cache[0], local, false, true, 0) == nil)
-			info, _ = os.Lstat(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, ".meta")))
+			info, _ = os.Lstat(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, Md5Extension)))
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 		}
 	}
@@ -298,7 +298,7 @@ func Test_SetCache_File_NoMETADATACheck(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(cacheDir, local))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, fmt.Sprintf("%s%s", local, Md5Extension)))
 			assert.ErrorContains(t, err, "no such file or directory")
 		}
 	}
@@ -350,7 +350,7 @@ func Test_RemoveCache_File(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
 			assert.ErrorContains(t, err, "no such file or directory")
 
-			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.ErrorContains(t, err, "no such file or directory")
 		}
 	}
@@ -377,7 +377,7 @@ func Test_SetCache_wCompress_NewFolder_CherryPick(t *testing.T) {
 
 			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), CompressFormat)))
 			assert.Assert(t, err == nil)
-			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.Assert(t, err == nil)
 		}
 	}
@@ -407,7 +407,7 @@ func Test_GetCache_wCompress_Folder_CherryPick(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.ErrorContains(t, err, "no such file or directory")
 		}
 	}
@@ -434,7 +434,7 @@ func Test_SetCache_wCompress_NewFolder(t *testing.T) {
 
 			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), CompressFormat)))
 			assert.Assert(t, err == nil)
-			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.Assert(t, err == nil)
 		}
 	}
@@ -460,7 +460,7 @@ func Test_SetCache_wCompress_RewriteFolder_NODELTA(t *testing.T) {
 			local, _ := filepath.Abs(eachFolder)
 			assert.Assert(t, Cache2Disk("set", cache[0], local, true, true, 0) == nil)
 
-			info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 		}
 	}
@@ -490,7 +490,7 @@ func Test_GetCache_wCompress_Folder(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.ErrorContains(t, err, "no such file or directory")
 		}
 	}
@@ -521,7 +521,7 @@ func Test_GetCache_wCompress_Folder_doNOTOverwriteNewFilesInLocal(t *testing.T) 
 			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.ErrorContains(t, err, "no such file or directory")
 
 			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", "donotoverwrite", ".txt")))
@@ -552,7 +552,7 @@ func Test_RemoveCache_Folder_wCompress(t *testing.T) {
 
 			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), CompressFormat)))
 			assert.ErrorContains(t, err, "no such file or directory")
-			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.ErrorContains(t, err, "no such file or directory")
 		}
 	}
@@ -579,7 +579,7 @@ func Test_SetCache_NewFolder(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.Assert(t, err == nil)
 		}
 	}
@@ -610,7 +610,7 @@ func Test_SetCache_RewriteFolder_NODELTA(t *testing.T) {
 			info, _ := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
 			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), CompressFormat), info.ModTime().Unix())
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
-			info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			info, _ = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			fmt.Printf("currentTime: [%v], file: [%v], createTime: [%v]\n", currentTime, fmt.Sprintf("%s%s", filepath.Base(local), CompressFormat), info.ModTime().Unix())
 			assert.Assert(t, info.ModTime().Unix() < currentTime)
 		}
@@ -638,7 +638,7 @@ func Test_SetCache_NewFolder_NoMETADATACheck(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.ErrorContains(t, err, "no such file or directory")
 		}
 	}
@@ -665,7 +665,7 @@ func Test_GetCache_Folder(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.ErrorContains(t, err, "no such file or directory")
 		}
 	}
@@ -693,7 +693,7 @@ func Test_GetCache_Folder_doNOTOverwriteNewFilesInLocal(t *testing.T) {
 			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.ErrorContains(t, err, "no such file or directory")
 
 			_, err = os.Lstat(filepath.Join(local, fmt.Sprintf("%s%s", "donotoverwrite", ".txt")))
@@ -724,7 +724,7 @@ func Test_RemoveCache_Folder(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".txt")))
 			assert.ErrorContains(t, err, "no such file or directory")
 
-			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.ErrorContains(t, err, "no such file or directory")
 		}
 	}
@@ -757,7 +757,7 @@ func Test_SetCache_NewFolder_wCompress_wTilde(t *testing.T) {
 
 			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), CompressFormat)))
 			assert.Assert(t, err == nil)
-			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.Assert(t, err == nil)
 		}
 	}
@@ -790,7 +790,7 @@ func Test_SetCache_NewFolder_wTilde(t *testing.T) {
 			_, err := os.Lstat(filepath.Join(cacheDir, local, "testfolder1.txt"))
 			assert.Assert(t, err == nil)
 
-			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, local, fmt.Sprintf("%s%s", filepath.Base(local), Md5Extension)))
 			assert.Assert(t, err == nil)
 		}
 	}
@@ -864,7 +864,7 @@ func Test_SetCache_NewRelativeFolder_wCompress(t *testing.T) {
 
 			_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), CompressFormat)))
 			assert.Assert(t, err == nil)
-			_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), ".meta")))
+			_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), Md5Extension)))
 			assert.Assert(t, err == nil)
 		}
 	}

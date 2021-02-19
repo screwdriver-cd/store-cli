@@ -17,9 +17,9 @@ import (
 
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
-var CacheStrategy string = strings.ToLower(os.Getenv("SD_CACHE_STRATEGY"))
+var CacheStrategy = strings.ToLower(os.Getenv("SD_CACHE_STRATEGY"))
 var CacheCompress, _ = strconv.ParseBool(strings.ToLower(strings.TrimSpace(os.Getenv("SD_CACHE_COMPRESS"))))
-var CacheMetaDataCheck, _ = strconv.ParseBool(strings.ToLower(strings.TrimSpace(os.Getenv("SD_CACHE_MD5CHECK"))))
+var CacheMd5Check, _ = strconv.ParseBool(strings.ToLower(strings.TrimSpace(os.Getenv("SD_CACHE_MD5CHECK"))))
 var CacheMaxSizeInMB, _ = strconv.ParseInt(os.Getenv("SD_CACHE_MAX_SIZE_MB"), 0, 64)
 
 // successExit exits process with 0
@@ -30,7 +30,7 @@ func successExit() {
 // failureExit exits process with 1
 func failureExit(err error) {
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 	}
 	os.Exit(1)
 }
@@ -39,8 +39,8 @@ func failureExit(err error) {
 // This should only happen if the previous recovery caused a panic.
 func finalRecover() {
 	if p := recover(); p != nil {
-		fmt.Fprintln(os.Stderr, "ERROR: Something terrible has happened. Please file a ticket with this info:")
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n%s\n", p, string(debug.Stack()))
+		_, _ = fmt.Fprintln(os.Stderr, "ERROR: Something terrible has happened. Please file a ticket with this info:")
+		_, _ = fmt.Fprintf(os.Stderr, "ERROR: %v\n%s\n", p, string(debug.Stack()))
 		failureExit(nil)
 	}
 	successExit()
@@ -107,7 +107,7 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	}
 
 	if len(path) == 0 {
-		return nil, fmt.Errorf("Invalid parameters")
+		return nil, fmt.Errorf("invalid parameters")
 	}
 
 	fullpath := fmt.Sprintf("%s%s", storeURL, path)
@@ -121,7 +121,7 @@ func get(storeType, scope, key string) error {
 	}
 
 	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
-		return sdstore.Cache2Disk("get", scope, key, CacheCompress, CacheMetaDataCheck, CacheMaxSizeInMB)
+		return sdstore.Cache2Disk("get", scope, key, CacheCompress, CacheMd5Check, CacheMaxSizeInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
 		fullURL, err := makeURL(storeType, scope, key)
@@ -151,7 +151,7 @@ func set(storeType, scope, filePath string) error {
 	}
 
 	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
-		return sdstore.Cache2Disk("set", scope, filePath, CacheCompress, CacheMetaDataCheck, CacheMaxSizeInMB)
+		return sdstore.Cache2Disk("set", scope, filePath, CacheCompress, CacheMd5Check, CacheMaxSizeInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
 		fullURL, err := makeURL(storeType, scope, filePath)
@@ -180,7 +180,7 @@ func remove(storeType, scope, key string) error {
 	}
 
 	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
-		return sdstore.Cache2Disk("remove", scope, key, CacheCompress, CacheMetaDataCheck, CacheMaxSizeInMB)
+		return sdstore.Cache2Disk("remove", scope, key, CacheCompress, CacheMd5Check, CacheMaxSizeInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
 		store := sdstore.NewStore(sdToken)
@@ -193,7 +193,7 @@ func remove(storeType, scope, key string) error {
 
 			err = store.Remove(md5URL)
 			if err != nil {
-				return fmt.Errorf("Failed to remove file from %s: %s", md5URL.String(), err)
+				return fmt.Errorf("failed to remove file from %s: %s", md5URL.String(), err)
 			}
 
 			zipURL, err := makeURL(storeType, scope, fmt.Sprintf("%s%s", filepath.Clean(key), ".zip"))
@@ -203,7 +203,7 @@ func remove(storeType, scope, key string) error {
 
 			err = store.Remove(zipURL)
 			if err != nil {
-				return fmt.Errorf("Failed to remove file from %s: %s", zipURL.String(), err)
+				return fmt.Errorf("failed to remove file from %s: %s", zipURL.String(), err)
 			}
 
 			return nil
@@ -302,5 +302,5 @@ func main() {
 		},
 	}
 
-	app.Run(os.Args)
+	_ = app.Run(os.Args)
 }
