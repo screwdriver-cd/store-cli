@@ -21,7 +21,7 @@ import (
 const CompressFormatTarZst = ".tar.zst"
 const CompressFormatZip = ".zip"
 const Md5Extension = ".md5"
-const TarCompressionLevel = "-3"			//	default compression level - 3 / possible values (1-19) or --fast
+const TarCompressionLevel = "-3" //	default compression level - 3 / possible values (1-19) or --fast
 
 type FileInfo struct {
 	Path    string `json:"path"`
