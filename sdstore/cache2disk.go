@@ -21,6 +21,7 @@ import (
 const CompressFormatTarZst = ".tar.zst"
 const CompressFormatZip = ".zip"
 const Md5Extension = ".md5"
+const TarCompressionLevel = "-3"			//	default compression level - 3 / possible values (1-19) or --fast
 
 type FileInfo struct {
 	Path    string `json:"path"`
@@ -338,7 +339,7 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 			return logger.Log(logger.LoglevelError, "", logger.ErrtypeZip, err)
 		}
 		_ = os.MkdirAll(destPath, 0777)
-		cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 --fast > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), targetPath, cwd)
+		cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 %s > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), TarCompressionLevel, targetPath, cwd)
 		err = ExecuteCommand(cmd)
 		if err != nil {
 			msg = fmt.Sprintf("failed to compress files from %v", src)
