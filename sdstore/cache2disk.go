@@ -21,6 +21,7 @@ import (
 const CompressFormatTarZst = ".tar.zst"
 const CompressFormatZip = ".zip"
 const Md5Extension = ".md5"
+const CompressionLevel = "-3" //	default compression level - 3 / possible values (1-19) or --fast
 
 type FileInfo struct {
 	Path    string `json:"path"`
@@ -43,15 +44,15 @@ func ExecuteCommand(command string) error {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil || strings.TrimSpace(stderr.String()) != "" {
-		return logger.Log(logger.LoglevelError, "", "", fmt.Sprintf("run err: %v, command err: %v, command out: %v", err, stderr.String(), stdout.String()))
+		return logger.Log(logger.LoglevelError, "", "", fmt.Sprintf("error: %v, %v, out: %v", err, stderr.String(), stdout.String()))
 	}
 	_ = logger.Log(logger.LoglevelInfo, "", stdout.String())
 	return nil
 }
 
 // ZStandard from https://github.com/facebook/zstd
-// To test in mac locally - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz and set path
-// To test in linux locally - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz and set path
+// To test in mac - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz and set path
+// To test in linux - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz and set path
 func getZstdBinary() string {
 	switch runtime.GOOS {
 	case "darwin":
@@ -338,11 +339,11 @@ func setCache(src, dest, command string, compress, md5Check bool, cacheMaxSizeIn
 			return logger.Log(logger.LoglevelError, "", logger.ErrtypeZip, err)
 		}
 		_ = os.MkdirAll(destPath, 0777)
-		cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 --fast > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), targetPath, cwd)
+		cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 %s > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), CompressionLevel, targetPath, cwd)
 		err = ExecuteCommand(cmd)
 		if err != nil {
 			msg = fmt.Sprintf("failed to compress files from %v", src)
-			return logger.Log(logger.LoglevelError, "", logger.ErrtypeZip, msg)
+			_ = logger.Log(logger.LoglevelWarn, "", logger.ErrtypeZip, msg)
 		}
 		_ = os.Chmod(targetPath, 0777)
 		_ = os.Chmod(destPath, 0777)
