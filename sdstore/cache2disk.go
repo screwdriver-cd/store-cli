@@ -62,29 +62,41 @@ func releaseLock(path string) {
 }
 
 // acquireLock : acquire lock before overwriting file
+// path => path
+// read => read / write
 // return error => for any error
-func acquireLock(path string) error {
+func acquireLock(path string, read bool) error {
 	rand.Seed(time.Now().UnixNano())
 	attempts := 1
 	for attempts <= 10 {
-		_, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
-		if err == nil {
-			if strings.HasSuffix(path, ".md5") {
-				fmt.Println("acquired lock on md5")
+		if read {
+			_, err := os.Lstat(path + ".lock")
+			if err != nil {
+				return nil
 			} else {
-				fmt.Println("acquired lock on cache")
+				fmt.Printf("waiting, cache is not available yet, attempts: %v \n", attempts)
 			}
-			return nil
-		}
-		if strings.HasSuffix(path, ".md5") {
-			fmt.Printf("waiting to acquire lock on md5, attempts: %v \n", attempts)
 		} else {
-			fmt.Printf("waiting to acquire lock on cache, attempts: %v \n", attempts)
+			_, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
+			if err == nil {
+				if strings.HasSuffix(path, ".md5") {
+					fmt.Println("acquired lock on md5")
+				} else {
+					fmt.Println("acquired lock on cache")
+				}
+				return nil
+			}
+			if strings.HasSuffix(path, ".md5") {
+				fmt.Printf("waiting to acquire lock on md5, attempts: %v \n", attempts)
+			} else {
+				fmt.Printf("waiting to acquire lock on cache, attempts: %v \n", attempts)
+			}
 		}
 		r := FlockWaitMinSecs + rand.Intn(FlockWaitMaxSecs-FlockWaitMinSecs)
 		time.Sleep(time.Duration(r) * time.Second)
 		attempts++
 	}
+
 	return errors.New("max attempts exceeded")
 }
 
@@ -277,14 +289,13 @@ func getCache(src, dest, command string) error {
 			}
 			_ = os.MkdirAll(destPath, os.ModePerm)
 			cmd := fmt.Sprintf("cd %s && %s -cd -T0 --fast %s | tar xf - || true; cd %s", destPath, getZstdBinary(), srcZipPath, cwd)
-			if err = acquireLock(srcZipPath); err == nil {
-				defer func() { releaseLock(srcZipPath) }()
+			if err = acquireLock(srcZipPath, true); err == nil {
 				err = executeCommand(cmd)
 				if err != nil {
 					return err
 				}
 			} else {
-				return logger.Error(fmt.Errorf("unable to acquire lock on file: %v, error: %v", srcZipPath, err))
+				return fmt.Errorf("read failed, %v", err)
 			}
 		}
 
@@ -370,7 +381,7 @@ func setCache(src, dest, command string, cacheMaxSizeInMB int64) error {
 	}
 	_ = os.MkdirAll(destPath, os.ModePerm)
 	cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 %s > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), CompressionLevel, targetPath, cwd)
-	if err = acquireLock(targetPath); err == nil {
+	if err = acquireLock(targetPath, false); err == nil {
 		err = executeCommand(cmd)
 		if err != nil {
 			msg = fmt.Sprintf("failed to compress files from %v", src)
@@ -387,7 +398,7 @@ func setCache(src, dest, command string, cacheMaxSizeInMB int64) error {
 	}
 
 	md5Path = filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, Md5Extension))
-	if err = acquireLock(md5Path); err == nil {
+	if err = acquireLock(md5Path, false); err == nil {
 		md5File, err = os.OpenFile(md5Path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 		if err != nil {
 			logger.Warn(fmt.Sprintf("not able to create %v file", md5Path))
