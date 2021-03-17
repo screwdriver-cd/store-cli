@@ -5,7 +5,6 @@ go 1.16
 require (
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/karrick/godirwalk v1.16.1
-	github.com/nightlyone/lockfile v1.0.0
 	github.com/otiai10/copy v1.0.2
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/stretchr/testify v1.4.0

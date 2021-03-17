@@ -5,6 +5,8 @@ import (
 	copy2 "github.com/otiai10/copy"
 	"gotest.tools/assert"
 	"io/ioutil"
+	// "github.com/gofrs/flock"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -286,7 +288,7 @@ func Test_SetCache_wCompress_RewriteFolder_NODELTA(t *testing.T) {
 
 	time.Sleep(2 * time.Second) // pause test for 2 seconds
 	currentTime := time.Now().Unix()
-	fmt.Println(currentTime)
+	fmt.Println(time.Now().Format(http.TimeFormat))
 
 	for _, eachCacheScope := range cacheScope {
 		cache := strings.Split(eachCacheScope, ":")
@@ -504,6 +506,93 @@ func Test_GetCache_NewRelativeFolder_wCompress(t *testing.T) {
 			assert.Assert(t, Cache2Disk("get", cache[0], eachFolder, 0) == nil)
 			_, err := os.Lstat(filepath.Join(dir, eachFolder))
 			assert.Assert(t, err == nil)
+		}
+	}
+	_ = os.Chdir(origDir)
+}
+
+func Test_SetCache_Lock_NewRelativeFolder_wCompress(t *testing.T) {
+	var (
+		err error
+	)
+
+	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline"}
+	localCacheFolders := []string{"storecli"}
+
+	origDir, _ := os.Getwd()
+	for _, eachCacheScope := range cacheScope {
+		cache := strings.Split(eachCacheScope, ":")
+		ss, _ := filepath.Abs(cache[2])
+		_ = os.Setenv(cache[1], ss)
+		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
+		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
+
+		FlockWaitMinSecs = 1
+		FlockWaitMaxSecs = 2
+
+		for _, eachFolder := range localCacheFolders {
+			fmt.Printf("local cache folder is [%s]\n", eachFolder)
+			home, _ := os.UserHomeDir()
+			dir := filepath.Join(home, "tmp")
+
+			go func() {
+				_ = os.MkdirAll(filepath.Join(cacheDir, eachFolder), 0777)
+				_, err = os.OpenFile(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")), os.O_RDWR|os.O_CREATE, os.ModePerm)
+				time.Sleep(10 * time.Second)
+				if err == nil {
+					_ = os.Remove(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")))
+				}
+			}()
+			time.Sleep(2 * time.Second)
+			_ = os.Chdir(dir)
+			assert.Assert(t, Cache2Disk("set", cache[0], eachFolder, 0) == nil)
+			_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), CompressFormat)))
+			assert.Assert(t, err == nil)
+			_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), Md5Extension)))
+			assert.Assert(t, err == nil)
+		}
+	}
+	_ = os.Chdir(origDir)
+}
+
+func Test_SetCache_Lock_Fail_NewRelativeFolder_wCompress(t *testing.T) {
+	var (
+		err error
+	)
+	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline"}
+	localCacheFolders := []string{"storecli"}
+
+	FlockWaitMinSecs = 1
+	FlockWaitMaxSecs = 2
+
+	origDir, _ := os.Getwd()
+	for _, eachCacheScope := range cacheScope {
+		cache := strings.Split(eachCacheScope, ":")
+		ss, _ := filepath.Abs(cache[2])
+		_ = os.Setenv(cache[1], ss)
+		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
+		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
+		_ = os.RemoveAll(cacheDir)
+		_ = os.MkdirAll(cacheDir, 0777)
+
+		for _, eachFolder := range localCacheFolders {
+			fmt.Printf("local cache folder is [%s]\n", eachFolder)
+			home, _ := os.UserHomeDir()
+			dir := filepath.Join(home, "tmp")
+
+			go func() {
+				_ = os.MkdirAll(filepath.Join(cacheDir, eachFolder), 0777)
+				_, err = os.OpenFile(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")), os.O_RDWR|os.O_CREATE, os.ModePerm)
+				time.Sleep(20 * time.Second)
+				if err == nil {
+					_ = os.Remove(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")))
+				}
+			}()
+			time.Sleep(2 * time.Second)
+			_ = os.Chdir(dir)
+			assert.Assert(t, Cache2Disk("set", cache[0], eachFolder, 0) != nil)
 		}
 	}
 	_ = os.Chdir(origDir)
