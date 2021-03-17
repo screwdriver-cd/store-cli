@@ -512,10 +512,6 @@ func Test_GetCache_NewRelativeFolder_wCompress(t *testing.T) {
 }
 
 func Test_SetCache_Lock_NewRelativeFolder_wCompress(t *testing.T) {
-	var (
-		err error
-	)
-
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline"}
 	localCacheFolders := []string{"storecli"}
 
@@ -538,17 +534,19 @@ func Test_SetCache_Lock_NewRelativeFolder_wCompress(t *testing.T) {
 			dir := filepath.Join(home, "tmp")
 
 			go func() {
-				_ = os.MkdirAll(filepath.Join(cacheDir, eachFolder), 0777)
-				_, err = os.OpenFile(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")), os.O_RDWR|os.O_CREATE, os.ModePerm)
+				_ = os.MkdirAll(filepath.Join(cacheDir, eachFolder), os.ModePerm)
+				_, err := os.OpenFile(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")), os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
 				time.Sleep(10 * time.Second)
 				if err == nil {
-					_ = os.Remove(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")))
+					defer func() {
+						_ = os.Remove(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")))
+					}()
 				}
 			}()
 			time.Sleep(2 * time.Second)
 			_ = os.Chdir(dir)
 			assert.Assert(t, Cache2Disk("set", cache[0], eachFolder, 0) == nil)
-			_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), CompressFormat)))
+			_, err := os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), CompressFormat)))
 			assert.Assert(t, err == nil)
 			_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), Md5Extension)))
 			assert.Assert(t, err == nil)
@@ -558,9 +556,6 @@ func Test_SetCache_Lock_NewRelativeFolder_wCompress(t *testing.T) {
 }
 
 func Test_SetCache_Lock_Fail_NewRelativeFolder_wCompress(t *testing.T) {
-	var (
-		err error
-	)
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline"}
 	localCacheFolders := []string{"storecli"}
 
@@ -583,11 +578,13 @@ func Test_SetCache_Lock_Fail_NewRelativeFolder_wCompress(t *testing.T) {
 			dir := filepath.Join(home, "tmp")
 
 			go func() {
-				_ = os.MkdirAll(filepath.Join(cacheDir, eachFolder), 0777)
-				_, err = os.OpenFile(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")), os.O_RDWR|os.O_CREATE, os.ModePerm)
+				_ = os.MkdirAll(filepath.Join(cacheDir, eachFolder), os.ModePerm)
+				_, err := os.OpenFile(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")), os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
 				time.Sleep(20 * time.Second)
 				if err == nil {
-					_ = os.Remove(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")))
+					defer func() {
+						_ = os.Remove(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")))
+					}()
 				}
 			}()
 			time.Sleep(2 * time.Second)
