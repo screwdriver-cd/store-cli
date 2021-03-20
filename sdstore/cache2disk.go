@@ -21,11 +21,11 @@ import (
 	"time"
 )
 
-const CompressUsingBinary = true
+const CompressZstdBinary = true // use zstd binary, go library performance is slower compared to binary
 const CompressFormatTarZst = ".tar.zst"
 const CompressFormatZip = ".zip"
+const CompressionLevel = -3 // default compression level - 3 / possible values (1-19) or --fast
 const Md5Extension = ".md5"
-const CompressionLevel = -3 //	default compression level - 3 / possible values (1-19) or --fast
 const DefaultFilePermission = os.ModePerm
 
 var FlockWaitMinSecs = 5
@@ -294,7 +294,7 @@ func getCache(src, dest, command string) error {
 			}
 			_ = os.MkdirAll(destPath, DefaultFilePermission)
 			if err = acquireLock(srcZipPath, true); err == nil {
-				if CompressUsingBinary {
+				if CompressZstdBinary {
 					cmd := fmt.Sprintf("cd %s && %s -cd -T0 %d %s | tar xf - || true; cd %s", destPath, getZstdBinary(), CompressionLevel, srcZipPath, cwd)
 					err = executeCommand(cmd)
 				} else {
@@ -391,7 +391,7 @@ func setCache(src, dest, command string, cacheMaxSizeInMB int64) error {
 	_ = os.MkdirAll(destPath, DefaultFilePermission)
 
 	if err = acquireLock(targetPath, false); err == nil {
-		if CompressUsingBinary {
+		if CompressZstdBinary {
 			cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 %d > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), CompressionLevel, targetPath, cwd)
 			err = executeCommand(cmd)
 		} else {
