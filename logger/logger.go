@@ -6,6 +6,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const Loglevel = zap.ErrorLevel
+
 var zapLogger *zap.Logger
 
 func NewProductionEncoderConfig() zapcore.EncoderConfig {
@@ -27,7 +29,7 @@ func NewProductionEncoderConfig() zapcore.EncoderConfig {
 func init() {
 	cfg := zap.NewProductionConfig()
 	cfg.Encoding = "json"
-	cfg.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
+	cfg.Level = zap.NewAtomicLevelAt(Loglevel)
 	cfg.InitialFields = map[string]interface{}{"app": "store-cli"}
 	cfg.OutputPaths = []string{"stdout"}
 	cfg.ErrorOutputPaths = []string{"stderr"}

@@ -21,10 +21,13 @@ import (
 	"time"
 )
 
+const CompressUsingBinary = true
 const CompressFormatTarZst = ".tar.zst"
 const CompressFormatZip = ".zip"
 const Md5Extension = ".md5"
-const CompressionLevel = "-3" //	default compression level - 3 / possible values (1-19) or --fast
+const CompressionLevel = -3 //	default compression level - 3 / possible values (1-19) or --fast
+const DefaultFilePermission = os.ModePerm
+
 var FlockWaitMinSecs = 5
 var FlockWaitMaxSecs = 15
 
@@ -77,7 +80,7 @@ func acquireLock(path string, read bool) error {
 				fmt.Printf("waiting, cache is not available yet, attempts: %v \n", attempts)
 			}
 		} else {
-			_, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
+			_, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_EXCL|os.O_WRONLY, DefaultFilePermission)
 			if err == nil {
 				if strings.HasSuffix(path, ".md5") {
 					fmt.Println("acquired lock on md5")
@@ -136,18 +139,21 @@ using file meta instead of calculating md5 for each file content, as its slower 
 param - path         		file / folder path
 return - string / int64 	md5 for path / total size in bytes
 */
-func getMetadataInfo(path string) (string, int64) {
+func getMetadataInfo(path string) ([]*FileInfo, string, int64) {
 	var fileInfos []*FileInfo
 
 	err := godirwalk.Walk(path, &godirwalk.Options{
 		Callback: func(filePath string, de *godirwalk.Dirent) error {
-			if !de.IsDir() {
-				file, err := os.Lstat(filePath)
-				if err != nil || file == nil {
-					return nil
-				}
-				fileInfos = append(fileInfos, &FileInfo{filePath, file.Size(), file.ModTime().UnixNano(), file.Mode().String()})
+			size := int64(0)
+			file, err := os.Lstat(filePath)
+			if err != nil || file == nil {
+				return nil
 			}
+			if !de.IsDir() {
+				size = file.Size()
+			}
+			fileInfos = append(fileInfos, &FileInfo{filePath, size, file.ModTime().UnixNano(), file.Mode().String()})
+
 			return nil
 		},
 		ErrorCallback: func(filePath string, err error) godirwalk.ErrorAction {
@@ -161,7 +167,7 @@ func getMetadataInfo(path string) (string, int64) {
 
 	size := int64(0)
 	if err != nil {
-		return "", size
+		return fileInfos, "", size
 	}
 
 	for _, s := range fileInfos {
@@ -169,7 +175,7 @@ func getMetadataInfo(path string) (string, int64) {
 	}
 
 	md5Json, _ := json.Marshal(fileInfos)
-	return getMd5(md5Json), size
+	return fileInfos, getMd5(md5Json), size
 }
 
 /*
@@ -232,7 +238,6 @@ func getCache(src, dest, command string) error {
 	var (
 		cwd, msg, srcZipPath, destPath, compressFormat string
 	)
-
 	logger.Info("get cache")
 	info, err := os.Lstat(src)
 	if err != nil {
@@ -287,10 +292,14 @@ func getCache(src, dest, command string) error {
 			if err != nil {
 				return logger.Error(err)
 			}
-			_ = os.MkdirAll(destPath, os.ModePerm)
-			cmd := fmt.Sprintf("cd %s && %s -cd -T0 --fast %s | tar xf - || true; cd %s", destPath, getZstdBinary(), srcZipPath, cwd)
+			_ = os.MkdirAll(destPath, DefaultFilePermission)
 			if err = acquireLock(srcZipPath, true); err == nil {
-				err = executeCommand(cmd)
+				if CompressUsingBinary {
+					cmd := fmt.Sprintf("cd %s && %s -cd -T0 %d %s | tar xf - || true; cd %s", destPath, getZstdBinary(), CompressionLevel, srcZipPath, cwd)
+					err = executeCommand(cmd)
+				} else {
+					err = Decompress(srcZipPath, destPath)
+				}
 				if err != nil {
 					return err
 				}
@@ -300,7 +309,7 @@ func getCache(src, dest, command string) error {
 		}
 
 	default:
-		_ = os.MkdirAll(filepath.Dir(destPath), os.ModePerm)
+		_ = os.MkdirAll(filepath.Dir(destPath), DefaultFilePermission)
 
 		targetZipPath := fmt.Sprintf("%s%s", dest, CompressFormatZip)
 		if err = copy.Copy(srcZipPath, targetZipPath); err != nil {
@@ -352,14 +361,14 @@ func setCache(src, dest, command string, cacheMaxSizeInMB int64) error {
 	destBase = filepath.Base(dest) // get file name
 	destPath = dest                // cache path + path from cache spec
 	srcPath = src                  // path from cache spec
-	srcFile = "."                  // assume patch from cache spec is directory
+	srcFile = "."                  // assume path from cache spec is directory
 	if !info.IsDir() {             // if path from cache spec is file
 		destPath = filepath.Dir(dest)
 		srcPath = filepath.Dir(src)
 		srcFile = filepath.Base(src)
 	}
 
-	newMd5, sizeInBytes := getMetadataInfo(src)
+	fInfos, newMd5, sizeInBytes := getMetadataInfo(src)
 	if cacheMaxSizeInMB > 0 {
 		cacheMaxSizeInBytes := cacheMaxSizeInMB << (10 * 2) // MB to Bytes
 		fmt.Printf("size: %v B\n", sizeInBytes)
@@ -379,16 +388,21 @@ func setCache(src, dest, command string, cacheMaxSizeInMB int64) error {
 	if err != nil {
 		return logger.Error(err)
 	}
-	_ = os.MkdirAll(destPath, os.ModePerm)
-	cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 %s > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), CompressionLevel, targetPath, cwd)
+	_ = os.MkdirAll(destPath, DefaultFilePermission)
+
 	if err = acquireLock(targetPath, false); err == nil {
-		err = executeCommand(cmd)
+		if CompressUsingBinary {
+			cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 %d > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), CompressionLevel, targetPath, cwd)
+			err = executeCommand(cmd)
+		} else {
+			err = Compress(srcPath, targetPath, fInfos)
+		}
 		if err != nil {
 			msg = fmt.Sprintf("failed to compress files from %v", src)
 			logger.Warn(msg)
 		}
-		_ = os.Chmod(destPath, os.ModePerm)
-		_ = os.Chmod(targetPath, os.ModePerm)
+		_ = os.Chmod(destPath, DefaultFilePermission)
+		_ = os.Chmod(targetPath, DefaultFilePermission)
 		releaseLock(targetPath)
 		// remove zip file if available
 		targetPath = fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatZip)
@@ -399,7 +413,7 @@ func setCache(src, dest, command string, cacheMaxSizeInMB int64) error {
 
 	md5Path = filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, Md5Extension))
 	if err = acquireLock(md5Path, false); err == nil {
-		md5File, err = os.OpenFile(md5Path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+		md5File, err = os.OpenFile(md5Path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, DefaultFilePermission)
 		if err != nil {
 			logger.Warn(fmt.Sprintf("not able to create %v file", md5Path))
 		} else {
