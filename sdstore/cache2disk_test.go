@@ -150,7 +150,6 @@ func Test_SetCache_wCompress_RewriteFile_NODELTA(t *testing.T) {
 
 	time.Sleep(2 * time.Second) // pause test for 2 seconds
 	currentTime := time.Now().Unix()
-	fmt.Println(currentTime)
 
 	for _, eachCacheScope := range cacheScope {
 		cache := strings.Split(eachCacheScope, ":")
@@ -173,9 +172,6 @@ func Test_SetCache_wCompress_RewriteFile_NODELTA(t *testing.T) {
 func Test_GetCache_wCompress_File(t *testing.T) {
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline", "job:SD_JOB_CACHE_DIR:../data/cache/job", "event:SD_EVENT_CACHE_DIR:../data/cache/event"}
 	localCacheFolders := []string{"../data/cache/.m2/testfolder1/testfolder1.txt", "../data/cache/maxsize/2mb"}
-
-	currentTime := time.Now().Unix()
-	fmt.Println(currentTime)
 
 	for _, eachCacheScope := range cacheScope {
 		cache := strings.Split(eachCacheScope, ":")
