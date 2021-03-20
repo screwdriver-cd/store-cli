@@ -21,13 +21,13 @@ import (
 	"time"
 )
 
-const CompressZstdBinary = true // use zstd binary, go library performance is slower compared to binary
 const CompressFormatTarZst = ".tar.zst"
 const CompressFormatZip = ".zip"
 const CompressionLevel = -3 // default compression level - 3 / possible values (1-19) or --fast
 const Md5Extension = ".md5"
 const DefaultFilePermission = os.ModePerm
 
+var CompressZstdBinary = true // use zstd binary, go library performance is slower compared to binary
 var FlockWaitMinSecs = 5
 var FlockWaitMaxSecs = 15
 
