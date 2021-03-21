@@ -8,6 +8,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/sys/unix"
 	"io"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -264,12 +265,14 @@ func Compress(src, dst string, files []*FileInfo) error {
 		zw                 *zstd.Encoder
 		// b                  int64
 	)
-
-	dstFile, err = os.OpenFile(dst, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0777)
+	rand.Seed(time.Now().UnixNano())
+	dstFile, err = os.OpenFile(dst, os.O_TRUNC|os.O_CREATE|os.O_RDWR, DefaultFilePermission)
 	if err != nil {
 		return err
 	}
 	defer dstFile.Close()
+
+	zstd.WithAllLitEntropyCompression(false)
 	zw, err = zstd.NewWriter(dstFile, zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(CompressionLevel)))
 	if err != nil {
 		return err
@@ -279,26 +282,26 @@ func Compress(src, dst string, files []*FileInfo) error {
 	tw := tar.NewWriter(zw)
 	defer func() { _ = tw.Close() }()
 
-	for _, path := range files {
-		fInfo, _ := os.Lstat(path.Path)
+	for _, f := range files {
+		fInfo, _ := os.Lstat(f.Path)
 		if fInfo.Mode().IsDir() {
-			err = setHeader(tw, fInfo, path.Path, src)
+			err = setHeader(tw, fInfo, f.Path, src)
 			if err != nil {
 				aggregatedErr = multierr.Append(aggregatedErr, err)
 			}
 		} else {
 			if fInfo.Mode()&os.ModeSymlink != 0 {
-				err = setHeader(tw, fInfo, path.Path, src)
+				err = setHeader(tw, fInfo, f.Path, src)
 				if err != nil {
 					aggregatedErr = multierr.Append(aggregatedErr, err)
 				}
 			} else {
-				file, err = os.Open(path.Path)
+				file, err = os.Open(f.Path)
 				if err != nil {
-					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("ignoring file %q: %v", path, err))
+					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("ignoring file %q: %v", f, err))
 					continue
 				}
-				err = setHeader(tw, fInfo, path.Path, src)
+				err = setHeader(tw, fInfo, f.Path, src)
 				if err != nil {
 					file.Close()
 					aggregatedErr = multierr.Append(aggregatedErr, err)
@@ -306,7 +309,7 @@ func Compress(src, dst string, files []*FileInfo) error {
 				}
 				if _, err = io.Copy(tw, file); err != nil {
 					file.Close()
-					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error copying file %q to tar: %v", path, err))
+					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error copying file %q to tar: %v", f, err))
 					continue
 				}
 				// fmt.Printf("wrote %d B of %d B for %q", b, fInfo.Size(), file.Name())
@@ -365,33 +368,33 @@ func Decompress(src, dst string) error {
 			}
 		} else {
 			if hdr.Typeflag == tar.TypeSymlink {
-				path := filepath.Join(dst, hdr.Name)
+				fPath := filepath.Join(dst, hdr.Name)
 				source := hdr.Linkname
 
-				err := os.Symlink(source, path)
+				err := os.Symlink(source, fPath)
 				if err != nil {
-					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error creating symlink %q %q: %v", source, path, err))
+					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error creating symlink %q %q: %v", source, fPath, err))
 					break
 				}
 				mtime[0] = unix.NsecToTimeval(info.ModTime().UnixNano())
 				mtime[1] = unix.NsecToTimeval(info.ModTime().UnixNano())
-				err = unix.Lutimes(path, mtime[0:])
+				err = unix.Lutimes(fPath, mtime[0:])
 				if err != nil {
-					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error setting symlink chtime %q: %v", path, err))
+					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error setting symlink chtime %q: %v", fPath, err))
 					break
 				}
 			} else {
-				path := filepath.Join(dst, hdr.Name)
+				fPath := filepath.Join(dst, hdr.Name)
 
-				file, err = os.Create(path)
+				file, err = os.Create(fPath)
 				if err != nil {
-					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error creating file %q: %v", path, err))
+					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error creating file %q: %v", fPath, err))
 					break
 				}
 				written, err = io.Copy(file, tr)
 				if err != nil {
 					file.Close()
-					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error writing to file %q: %v", path, err))
+					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error writing to file %q: %v", fPath, err))
 					break
 				}
 				if written != hdr.Size {
@@ -400,14 +403,14 @@ func Decompress(src, dst string) error {
 					break
 				}
 				file.Close()
-				err = os.Chtimes(path, info.ModTime(), info.ModTime())
+				err = os.Chtimes(fPath, info.ModTime(), info.ModTime())
 				if err != nil {
-					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error setting file chtimes %q: %v", path, err))
+					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error setting file chtimes %q: %v", fPath, err))
 					break
 				}
-				err = os.Chmod(path, info.Mode())
+				err = os.Chmod(fPath, info.Mode())
 				if err != nil {
-					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error setting file mode %q: %v", path, err))
+					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error setting file mode %q: %v", fPath, err))
 					break
 				}
 			}
