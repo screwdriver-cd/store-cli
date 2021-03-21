@@ -8,7 +8,6 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/sys/unix"
 	"io"
-	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -265,7 +264,7 @@ func Compress(src, dst string, files []*FileInfo) error {
 		zw                 *zstd.Encoder
 		// b                  int64
 	)
-	rand.Seed(time.Now().UnixNano())
+
 	dstFile, err = os.OpenFile(dst, os.O_TRUNC|os.O_CREATE|os.O_RDWR, DefaultFilePermission)
 	if err != nil {
 		return err
