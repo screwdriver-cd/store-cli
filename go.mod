@@ -12,6 +12,6 @@ require (
 	github.com/urfave/cli v1.22.2
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
-	golang.org/x/sys v0.0.0-20190412213103-97732733099d
+	golang.org/x/sys v0.0.0-20210324051608-47abb6519492
 	gotest.tools v2.2.0+incompatible
 )

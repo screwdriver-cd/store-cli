@@ -507,90 +507,6 @@ func Test_GetCache_NewRelativeFolder_wCompress(t *testing.T) {
 	_ = os.Chdir(origDir)
 }
 
-func Test_SetCache_Lock_NewRelativeFolder_wCompress(t *testing.T) {
-	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline"}
-	localCacheFolders := []string{"storecli"}
-
-	origDir, _ := os.Getwd()
-	for _, eachCacheScope := range cacheScope {
-		cache := strings.Split(eachCacheScope, ":")
-		ss, _ := filepath.Abs(cache[2])
-		_ = os.Setenv(cache[1], ss)
-		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
-		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		_ = os.RemoveAll(cacheDir)
-		_ = os.MkdirAll(cacheDir, 0777)
-
-		FlockWaitMinSecs = 1
-		FlockWaitMaxSecs = 2
-
-		for _, eachFolder := range localCacheFolders {
-			fmt.Printf("local cache folder is [%s]\n", eachFolder)
-			home, _ := os.UserHomeDir()
-			dir := filepath.Join(home, "tmp")
-
-			go func() {
-				_ = os.MkdirAll(filepath.Join(cacheDir, eachFolder), os.ModePerm)
-				_, err := os.OpenFile(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")), os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
-				time.Sleep(10 * time.Second)
-				if err == nil {
-					defer func() {
-						_ = os.Remove(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")))
-					}()
-				}
-			}()
-			time.Sleep(2 * time.Second)
-			_ = os.Chdir(dir)
-			assert.Assert(t, Cache2Disk("set", cache[0], eachFolder, 0) == nil)
-			_, err := os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), CompressFormat)))
-			assert.Assert(t, err == nil)
-			_, err = os.Lstat(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s", filepath.Base(eachFolder), Md5Extension)))
-			assert.Assert(t, err == nil)
-		}
-	}
-	_ = os.Chdir(origDir)
-}
-
-func Test_SetCache_Lock_Fail_NewRelativeFolder_wCompress(t *testing.T) {
-	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline"}
-	localCacheFolders := []string{"storecli"}
-
-	FlockWaitMinSecs = 1
-	FlockWaitMaxSecs = 2
-
-	origDir, _ := os.Getwd()
-	for _, eachCacheScope := range cacheScope {
-		cache := strings.Split(eachCacheScope, ":")
-		ss, _ := filepath.Abs(cache[2])
-		_ = os.Setenv(cache[1], ss)
-		cacheDir, _ := filepath.Abs(os.Getenv(cache[1]))
-		fmt.Printf("cache scope is [%v], cache environment variable is [%v], cache directory is [%v]\n", cache[0], cache[1], cacheDir)
-		_ = os.RemoveAll(cacheDir)
-		_ = os.MkdirAll(cacheDir, 0777)
-
-		for _, eachFolder := range localCacheFolders {
-			fmt.Printf("local cache folder is [%s]\n", eachFolder)
-			home, _ := os.UserHomeDir()
-			dir := filepath.Join(home, "tmp")
-
-			go func() {
-				_ = os.MkdirAll(filepath.Join(cacheDir, eachFolder), os.ModePerm)
-				_, err := os.OpenFile(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")), os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
-				time.Sleep(20 * time.Second)
-				if err == nil {
-					defer func() {
-						_ = os.Remove(filepath.Join(cacheDir, eachFolder, fmt.Sprintf("%s%s%s", filepath.Base(eachFolder), CompressFormat, ".lock")))
-					}()
-				}
-			}()
-			time.Sleep(2 * time.Second)
-			_ = os.Chdir(dir)
-			assert.Assert(t, Cache2Disk("set", cache[0], eachFolder, 0) != nil)
-		}
-	}
-	_ = os.Chdir(origDir)
-}
-
 func Test_BackwardCompatibility_Zip_Folder(t *testing.T) {
 	localFolder, _ := filepath.Abs("../data/cache/.m2/testfolder1")
 	cacheFolder, _ := filepath.Abs("../data/cache/pipeline")
@@ -630,7 +546,6 @@ func Test_BackwardCompatibility_Zip_File(t *testing.T) {
 
 func Test_SetCache_NewRelativeFolder_wCompress_GoLib(t *testing.T) {
 	var err error
-	CompressZstdBinary = false
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline"}
 	localCacheFolders := []string{"storecli"}
 
@@ -663,7 +578,6 @@ func Test_SetCache_NewRelativeFolder_wCompress_GoLib(t *testing.T) {
 func Test_GetCache_NewRelativeFolder_wCompress_GoLib(t *testing.T) {
 	cacheScope := []string{"pipeline:SD_PIPELINE_CACHE_DIR:../data/cache/pipeline"}
 	localCacheFolders := []string{"storecli"}
-	CompressZstdBinary = false
 
 	origDir, _ := os.Getwd()
 	for _, eachCacheScope := range cacheScope {

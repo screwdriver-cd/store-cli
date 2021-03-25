@@ -26,10 +26,9 @@ const CompressFormatZip = ".zip"
 const CompressionLevel = -3 // default compression level - 3 / possible values (1-19) or --fast
 const Md5Extension = ".md5"
 const DefaultFilePermission = os.ModePerm
-
-var CompressZstdBinary = true // use zstd binary, go library performance is slower compared to binary
-var FlockWaitMinSecs = 5
-var FlockWaitMaxSecs = 15
+const CompressZstdBinary = false // use zstd binary or go library
+const FlockWaitMinSecs = 5
+const FlockWaitMaxSecs = 15
 
 type FileInfo struct {
 	Path    string `json:"path"`
@@ -82,24 +81,15 @@ func acquireLock(path string, read bool) error {
 		} else {
 			_, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_EXCL|os.O_WRONLY, DefaultFilePermission)
 			if err == nil {
-				if strings.HasSuffix(path, ".md5") {
-					fmt.Println("acquired lock on md5")
-				} else {
-					fmt.Println("acquired lock on cache")
-				}
+				fmt.Println("acquired lock on ", path)
 				return nil
 			}
-			if strings.HasSuffix(path, ".md5") {
-				fmt.Printf("waiting to acquire lock on md5, attempts: %v \n", attempts)
-			} else {
-				fmt.Printf("waiting to acquire lock on cache, attempts: %v \n", attempts)
-			}
+			fmt.Printf("waiting to acquire lock on %v, attempts: %v \n", path, attempts)
 		}
 		r := FlockWaitMinSecs + rand.Intn(FlockWaitMaxSecs-FlockWaitMinSecs)
 		time.Sleep(time.Duration(r) * time.Second)
 		attempts++
 	}
-
 	return errors.New("max attempts exceeded")
 }
 
@@ -131,6 +121,27 @@ func getMd5(b []byte) string {
 	md5hashInBytes := md5hash.Sum(nil)
 	md5str := hex.EncodeToString(md5hashInBytes)
 	return md5str
+}
+
+func writeMd5(dst, md5 string) {
+	var (
+		md5File *os.File
+		err     error
+		b       int
+	)
+
+	md5File, err = os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, DefaultFilePermission)
+	if err != nil {
+		logger.Warn(fmt.Sprintf("unable to create %v", dst))
+	} else {
+		defer md5File.Close()
+		if b, err = md5File.WriteString(md5); err != nil {
+			logger.Warn(fmt.Sprintf("failed to write %v", dst))
+		} else {
+			_ = md5File.Sync()
+			logger.Info(fmt.Sprintf("wrote %d bytes of %v", b, dst))
+		}
+	}
 }
 
 /*
@@ -349,9 +360,7 @@ return - nil / error   		success - return nil; error - return error description
 func setCache(src, dest, command string, cacheMaxSizeInMB int64) error {
 	var (
 		msg, md5Path, destPath, destBase, srcPath, srcFile, cwd string
-		b                                                       int
 		err                                                     error
-		md5File                                                 *os.File
 	)
 
 	info, err := os.Lstat(src)
@@ -390,46 +399,43 @@ func setCache(src, dest, command string, cacheMaxSizeInMB int64) error {
 	}
 	_ = os.MkdirAll(destPath, DefaultFilePermission)
 
-	if err = acquireLock(targetPath, false); err == nil {
-		if CompressZstdBinary {
+	if CompressZstdBinary {
+		if err = acquireLock(targetPath, false); err == nil {
 			cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 %d > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), CompressionLevel, targetPath, cwd)
 			err = executeCommand(cmd)
+			if err != nil {
+				msg = fmt.Sprintf("failed to compress files from %v", src)
+				logger.Warn(msg)
+			}
+			_ = os.Chmod(destPath, DefaultFilePermission)
+			_ = os.Chmod(targetPath, DefaultFilePermission)
+			releaseLock(targetPath)
 		} else {
-			err = Compress(srcPath, targetPath, fInfos)
+			return logger.Error(fmt.Errorf("unable to acquire lock on file: %v, error: %v", targetPath, err))
 		}
-		if err != nil {
-			msg = fmt.Sprintf("failed to compress files from %v", src)
-			logger.Warn(msg)
-		}
-		_ = os.Chmod(destPath, DefaultFilePermission)
-		_ = os.Chmod(targetPath, DefaultFilePermission)
-		releaseLock(targetPath)
-		// remove zip file if available
-		targetPath = fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatZip)
-		defer os.RemoveAll(targetPath)
 	} else {
-		return logger.Error(fmt.Errorf("unable to acquire lock on file: %v, error: %v", targetPath, err))
+		if err = acquireLock(targetPath, false); err == nil {
+			err = Compress(srcPath, targetPath, fInfos)
+			_ = os.Chmod(destPath, DefaultFilePermission)
+			releaseLock(targetPath)
+			if err != nil {
+				return logger.Error(err)
+			}
+		} else {
+			return logger.Error(err)
+		}
 	}
+	// remove zip file if available
+	targetPath = fmt.Sprintf("%s%s", filepath.Join(destPath, destBase), CompressFormatZip)
+	defer os.RemoveAll(targetPath)
 
 	md5Path = filepath.Join(destPath, fmt.Sprintf("%s%s", destBase, Md5Extension))
 	if err = acquireLock(md5Path, false); err == nil {
-		md5File, err = os.OpenFile(md5Path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, DefaultFilePermission)
-		if err != nil {
-			logger.Warn(fmt.Sprintf("not able to create %v file", md5Path))
-		} else {
-			defer md5File.Close()
-			if b, err = md5File.WriteString(newMd5); err != nil {
-				logger.Warn(fmt.Sprintf("failed to write %v%s file to destination %v", destBase, Md5Extension, destPath))
-			} else {
-				_ = md5File.Sync()
-				logger.Info(fmt.Sprintf("wrote %d bytes of %v%s file to destination %v", b, destBase, Md5Extension, destPath))
-			}
-		}
+		writeMd5(md5Path, newMd5)
 		releaseLock(md5Path)
 	} else {
-		return logger.Error(fmt.Errorf("unable to acquire lock on file: %v, error: %v", md5Path, err))
+		return logger.Error(err)
 	}
-
 	return nil
 }
 

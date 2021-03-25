@@ -235,7 +235,7 @@ func Unzip(src string, dest string) ([]string, error) {
 	return files, nil
 }
 
-func setHeader(tw *tar.Writer, fInfo os.FileInfo, path, src string) error {
+func writeHeader(tw *tar.Writer, fInfo os.FileInfo, path, src string) error {
 	var (
 		link     string
 		fileName string
@@ -262,10 +262,9 @@ func Compress(src, dst string, files []*FileInfo) error {
 		err, aggregatedErr error
 		file, dstFile      *os.File
 		zw                 *zstd.Encoder
-		// b                  int64
 	)
 
-	dstFile, err = os.OpenFile(dst, os.O_TRUNC|os.O_CREATE|os.O_RDWR, DefaultFilePermission)
+	dstFile, err = os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, DefaultFilePermission)
 	if err != nil {
 		return err
 	}
@@ -284,13 +283,13 @@ func Compress(src, dst string, files []*FileInfo) error {
 	for _, f := range files {
 		fInfo, _ := os.Lstat(f.Path)
 		if fInfo.Mode().IsDir() {
-			err = setHeader(tw, fInfo, f.Path, src)
+			err = writeHeader(tw, fInfo, f.Path, src)
 			if err != nil {
 				aggregatedErr = multierr.Append(aggregatedErr, err)
 			}
 		} else {
 			if fInfo.Mode()&os.ModeSymlink != 0 {
-				err = setHeader(tw, fInfo, f.Path, src)
+				err = writeHeader(tw, fInfo, f.Path, src)
 				if err != nil {
 					aggregatedErr = multierr.Append(aggregatedErr, err)
 				}
@@ -300,7 +299,7 @@ func Compress(src, dst string, files []*FileInfo) error {
 					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("ignoring file %q: %v", f, err))
 					continue
 				}
-				err = setHeader(tw, fInfo, f.Path, src)
+				err = writeHeader(tw, fInfo, f.Path, src)
 				if err != nil {
 					file.Close()
 					aggregatedErr = multierr.Append(aggregatedErr, err)
@@ -311,12 +310,12 @@ func Compress(src, dst string, files []*FileInfo) error {
 					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error copying file %q to tar: %v", f, err))
 					continue
 				}
-				// fmt.Printf("wrote %d B of %d B for %q", b, fInfo.Size(), file.Name())
 				file.Close()
 			}
 		}
 	}
-	return aggregatedErr
+	logger.Warn(aggregatedErr)
+	return nil
 }
 
 func Decompress(src, dst string) error {
@@ -327,9 +326,10 @@ func Decompress(src, dst string) error {
 		hdr                *tar.Header
 		mtime              [2]unix.Timeval
 		written            int64
+		fInfos             []*FileInfo
 	)
 
-	srcFile, err = os.OpenFile(src, os.O_RDONLY, DefaultFilePermission)
+	srcFile, err = os.Open(src)
 	if err != nil {
 		return err
 	}
@@ -360,17 +360,13 @@ func Decompress(src, dst string) error {
 				aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error creating dir %q: %v", dirPath, err))
 				break
 			}
-			err = os.Chtimes(dirPath, info.ModTime(), info.ModTime())
-			if err != nil {
-				aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error setting chtimes for directory %q: %v", dirPath, err))
-				break
-			}
+			fInfos = append(fInfos, &FileInfo{dirPath, 0, info.ModTime().UnixNano(), info.Mode().String()})
 		} else {
 			if hdr.Typeflag == tar.TypeSymlink {
 				fPath := filepath.Join(dst, hdr.Name)
 				source := hdr.Linkname
 
-				err := os.Symlink(source, fPath)
+				err = os.Symlink(source, fPath)
 				if err != nil {
 					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error creating symlink %q %q: %v", source, fPath, err))
 					break
@@ -415,5 +411,15 @@ func Decompress(src, dst string) error {
 			}
 		}
 	}
-	return aggregatedErr
+
+	for _, s := range fInfos {
+		err = os.Chtimes(s.Path, time.Unix(0, s.ModTime), time.Unix(0, s.ModTime))
+		if err != nil {
+			aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error setting chtimes for directory %q: %v", s.Path, err))
+			break
+		}
+	}
+
+	logger.Warn(aggregatedErr)
+	return nil
 }
