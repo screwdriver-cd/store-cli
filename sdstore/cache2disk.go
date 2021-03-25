@@ -26,7 +26,7 @@ const CompressFormatZip = ".zip"
 const CompressionLevel = -3 // default compression level - 3 / possible values (1-19) or --fast
 const Md5Extension = ".md5"
 const DefaultFilePermission = os.ModePerm
-const CompressZstdBinary = false // use zstd binary or go library
+const ZstdCli = false // use zstd binary or go library
 const FlockWaitMinSecs = 5
 const FlockWaitMaxSecs = 15
 
@@ -305,7 +305,7 @@ func getCache(src, dest, command string) error {
 			}
 			_ = os.MkdirAll(destPath, DefaultFilePermission)
 			if err = acquireLock(srcZipPath, true); err == nil {
-				if CompressZstdBinary {
+				if ZstdCli {
 					cmd := fmt.Sprintf("cd %s && %s -cd -T0 %d %s | tar xf - || true; cd %s", destPath, getZstdBinary(), CompressionLevel, srcZipPath, cwd)
 					err = executeCommand(cmd)
 				} else {
@@ -399,7 +399,7 @@ func setCache(src, dest, command string, cacheMaxSizeInMB int64) error {
 	}
 	_ = os.MkdirAll(destPath, DefaultFilePermission)
 
-	if CompressZstdBinary {
+	if ZstdCli {
 		if err = acquireLock(targetPath, false); err == nil {
 			cmd := fmt.Sprintf("cd %s && tar -c %s | %s -T0 %d > %s || true; cd %s", srcPath, srcFile, getZstdBinary(), CompressionLevel, targetPath, cwd)
 			err = executeCommand(cmd)
