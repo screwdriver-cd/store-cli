@@ -27,8 +27,9 @@ const CompressionLevel = -3 // default compression level - 3 / possible values (
 const Md5Extension = ".md5"
 const DefaultFilePermission = os.ModePerm
 const ZstdCli = false // use zstd binary or go library
-const FlockWaitMinSecs = 5
-const FlockWaitMaxSecs = 15
+
+var FlockWaitMinSecs = 5
+var FlockWaitMaxSecs = 15
 
 type FileInfo struct {
 	Path    string `json:"path"`
@@ -81,10 +82,18 @@ func acquireLock(path string, read bool) error {
 		} else {
 			_, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_EXCL|os.O_WRONLY, DefaultFilePermission)
 			if err == nil {
-				fmt.Println("acquired lock on ", path)
+				if strings.HasSuffix(path, "md5") {
+					fmt.Println("acquired lock on md5")
+				} else {
+					fmt.Println("acquired lock on cache")
+				}
 				return nil
 			}
-			fmt.Printf("waiting to acquire lock on %v, attempts: %v \n", path, attempts)
+			if strings.HasSuffix(path, "md5") {
+				fmt.Printf("waiting to acquire lock on md5, attempts: %v \n", attempts)
+			} else {
+				fmt.Printf("waiting to acquire lock on cache, attempts: %v \n", attempts)
+			}
 		}
 		r := FlockWaitMinSecs + rand.Intn(FlockWaitMaxSecs-FlockWaitMinSecs)
 		time.Sleep(time.Duration(r) * time.Second)
