@@ -591,7 +591,6 @@ func Test_SetCache_Lock_Fail_NewRelativeFolder_wCompress(t *testing.T) {
 	_ = os.Chdir(origDir)
 }
 
-
 func Test_BackwardCompatibility_Zip_Folder(t *testing.T) {
 	localFolder, _ := filepath.Abs("../data/cache/.m2/testfolder1")
 	cacheFolder, _ := filepath.Abs("../data/cache/pipeline")
