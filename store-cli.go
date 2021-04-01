@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/screwdriver-cd/store-cli/sdstore"
+	"github.com/urfave/cli"
 	"log"
 	"net/url"
 	"os"
@@ -9,17 +11,11 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-
-	"github.com/urfave/cli"
-
-	"github.com/screwdriver-cd/store-cli/sdstore"
 )
 
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
 var CacheStrategy = strings.ToLower(os.Getenv("SD_CACHE_STRATEGY"))
-var CacheCompress, _ = strconv.ParseBool(strings.ToLower(strings.TrimSpace(os.Getenv("SD_CACHE_COMPRESS"))))
-var CacheMd5Check, _ = strconv.ParseBool(strings.ToLower(strings.TrimSpace(os.Getenv("SD_CACHE_MD5CHECK"))))
 var CacheMaxSizeInMB, _ = strconv.ParseInt(os.Getenv("SD_CACHE_MAX_SIZE_MB"), 0, 64)
 
 // successExit exits process with 0
@@ -121,7 +117,7 @@ func get(storeType, scope, key string) error {
 	}
 
 	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
-		return sdstore.Cache2Disk("get", scope, key, CacheCompress, CacheMd5Check, CacheMaxSizeInMB)
+		return sdstore.Cache2Disk("get", scope, key, CacheMaxSizeInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
 		fullURL, err := makeURL(storeType, scope, key)
@@ -151,7 +147,7 @@ func set(storeType, scope, filePath string) error {
 	}
 
 	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
-		return sdstore.Cache2Disk("set", scope, filePath, CacheCompress, CacheMd5Check, CacheMaxSizeInMB)
+		return sdstore.Cache2Disk("set", scope, filePath, CacheMaxSizeInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
 		fullURL, err := makeURL(storeType, scope, filePath)
@@ -180,7 +176,7 @@ func remove(storeType, scope, key string) error {
 	}
 
 	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
-		return sdstore.Cache2Disk("remove", scope, key, CacheCompress, CacheMd5Check, CacheMaxSizeInMB)
+		return sdstore.Cache2Disk("remove", scope, key, CacheMaxSizeInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
 		store := sdstore.NewStore(sdToken)

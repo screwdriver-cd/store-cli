@@ -2,52 +2,54 @@ package logger
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"os"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-var logger = log.WithFields(log.Fields{"app": "store-cli"})
+const Loglevel = zap.ErrorLevel
 
-const (
-	LoglevelError = log.ErrorLevel
-	LoglevelWarn  = log.WarnLevel
-	LoglevelInfo  = log.InfoLevel
-)
+var zapLogger *zap.Logger
 
-const (
-	ErrtypeCopy         = "copy"
-	ErrtypeScope        = "scope"
-	ErrtypeCommand      = "command"
-	ErrtypeFile         = "file"
-	ErrtypeMd5          = "md5"
-	ErrtypeZip          = "zip"
-	ErrtypeMaxsizelimit = "maxsizelimit"
-)
-
-func init() {
-	log.SetFormatter(&log.JSONFormatter{PrettyPrint: true})
-	log.SetOutput(os.Stdout)
-	log.SetLevel(log.ErrorLevel)
+func NewProductionEncoderConfig() zapcore.EncoderConfig {
+	return zapcore.EncoderConfig{
+		TimeKey:        "", // disable printing timestamp "ts"
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.CapitalLevelEncoder,
+		EncodeTime:     zapcore.RFC3339NanoTimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
 }
 
-/*
-write log
-param - level         		log level
-param - errType
-param - msg			error msg
-return - error / nil		INFO / WARN - nil; ERROR - return error msg
-*/
-func Log(level log.Level, module, errType string, msg ...interface{}) error {
-	switch level {
-	case log.WarnLevel:
-		msg = append([]interface{}{"ignore warning, "}, msg...)
-		logger.WithFields(log.Fields{"module": module, "type": errType}).Warn(msg...)
-		return nil
-	case log.ErrorLevel:
-		logger.WithFields(log.Fields{"module": module, "type": errType}).Error(msg...)
-		return fmt.Errorf(fmt.Sprintf("%v", msg...))
-	default:
-		logger.WithFields(log.Fields{"module": module, "type": errType}).Info(msg...)
-		return nil
-	}
+func init() {
+	cfg := zap.NewProductionConfig()
+	cfg.Encoding = "json"
+	cfg.Level = zap.NewAtomicLevelAt(Loglevel)
+	cfg.InitialFields = map[string]interface{}{"app": "store-cli"}
+	cfg.OutputPaths = []string{"stdout"}
+	cfg.ErrorOutputPaths = []string{"stderr"}
+	cfg.DisableStacktrace = true
+	cfg.DisableCaller = true
+	cfg.EncoderConfig = NewProductionEncoderConfig()
+	zapLogger, _ = cfg.Build()
+	defer func() { _ = zapLogger.Sync() }()
+}
+
+func Info(msg string) {
+	zapLogger.Info(msg)
+}
+
+func Warn(err ...interface{}) {
+	msg := append([]interface{}{"IGNORE,"}, err...)
+	zapLogger.Warn(fmt.Sprintf("%v", msg))
+}
+
+func Error(err error) error {
+	zapLogger.Error(fmt.Sprintf("%v", err))
+	return fmt.Errorf(fmt.Sprintf("%v", err))
 }
