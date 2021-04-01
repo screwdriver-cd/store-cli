@@ -26,7 +26,7 @@ const CompressFormatZip = ".zip"
 const CompressionLevel = -3 // default compression level - 3 / possible values (1-19) or --fast
 const Md5Extension = ".md5"
 const DefaultFilePermission = os.ModePerm
-const ZstdCli = false // use zstd binary or go library
+const ZstdCli = true // use zstd binary or go library
 
 var FlockWaitMinSecs = 5
 var FlockWaitMaxSecs = 15
