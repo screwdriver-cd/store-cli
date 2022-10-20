@@ -14,15 +14,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/hashicorp/go-retryablehttp"
 )
 
-func newStore(retryScaler float64, maxRetries int) *sdStore {
+func newStore(maxRetries int) *sdStore {
+	var retryHttpClient *retryablehttp.Client
+	retryHttpClient = retryablehttp.NewClient()
+	retryHttpClient.RetryMax = maxRetries
+	retryHttpClient.HTTPClient.Timeout = time.Duration(1) * time.Second
+	token := "faketoken"
 	return &sdStore{
-		token:       "faketoken",
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: retryScaler,
-		maxRetries:  maxRetries,
+		token,
+		retryHttpClient,
 	}
 }
 
@@ -51,7 +54,6 @@ func makeFakeHTTPClient(t *testing.T, code int, body string, v func(r *http.Requ
 
 		w.WriteHeader(code)
 		w.Header().Set("Content-Type", "application/json")
-
 		if r.URL.String() == "http://fakestore.example.com/v1/caches/events/123/../data/emitterdata_md5.json" {
 			w.Write([]byte("{\"../data/emitterdata\":\"73a256001a246e77fd1941ca007b50r2\"}"))
 		} else if r.URL.String() == "http://fakestore.example.com/v1/caches/events/123/../data/emitterdata2_md5.json" {
@@ -59,6 +61,7 @@ func makeFakeHTTPClient(t *testing.T, code int, body string, v func(r *http.Requ
 		} else {
 			w.Write([]byte(body))
 		}
+		//fmt.Fprintln(w, body)
 	}))
 
 	transport := &http.Transport{
@@ -140,14 +143,8 @@ func checkModTime(t *testing.T, path string, expectedTime string) {
 }
 
 func TestUpload(t *testing.T) {
-	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.example.com/builds/emitterdata")
-	uploader := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: 1.0,
-		maxRetries:  3,
-	}
+	uploader := newStore(2)
 	called := false
 
 	want := bytes.NewBuffer(nil)
@@ -178,7 +175,7 @@ func TestUpload(t *testing.T) {
 		} else if r.Method == "GET" {
 		}
 	})
-	uploader.client = http
+	uploader.client.HTTPClient = http
 	uploader.Upload(u, testFile().Name(), false)
 
 	if !called {
@@ -187,16 +184,10 @@ func TestUpload(t *testing.T) {
 }
 
 func TestUploadZipWithChange(t *testing.T) {
-	token := "faketoken"
 	file := "../data/emitterdata"
 	zipfile := file + ".zip"
 	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/123/" + file)
-	uploader := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: 1.0,
-		maxRetries:  3.0,
-	}
+	uploader := newStore(2)
 	called := 0
 	getMd5 := false
 	putZip := false
@@ -269,7 +260,7 @@ func TestUploadZipWithChange(t *testing.T) {
 		}
 	})
 
-	uploader.client = http
+	uploader.client.HTTPClient = http
 	uploader.Upload(u, testFile().Name(), true)
 
 	if !getMd5 {
@@ -290,15 +281,9 @@ func TestUploadZipWithChange(t *testing.T) {
 }
 
 func TestUploadZipNoChange(t *testing.T) {
-	token := "faketoken"
 	file := "../data/emitterdata2"
 	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/123/" + file)
-	uploader := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: 1.0,
-		maxRetries:  3.0,
-	}
+	uploader := newStore(2)
 	called := 0
 
 	want := bytes.NewBuffer(nil)
@@ -319,7 +304,7 @@ func TestUploadZipNoChange(t *testing.T) {
 		}
 	})
 
-	uploader.client = http
+	uploader.client.HTTPClient = http
 	uploader.Upload(u, testFile2().Name(), true)
 
 	if called != 1 { // 1 GET
@@ -328,20 +313,14 @@ func TestUploadZipNoChange(t *testing.T) {
 }
 
 func TestUploadRetry(t *testing.T) {
-	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
-	uploader := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: .01,
-		maxRetries:  3.0,
-	}
+	uploader := newStore(2)
 
 	callCount := int32(0)
 	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
 		atomic.AddInt32(&callCount, 1)
 	})
-	uploader.client = http
+	uploader.client.HTTPClient = http
 	err := uploader.Upload(u, testFile().Name(), false)
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
@@ -352,20 +331,14 @@ func TestUploadRetry(t *testing.T) {
 }
 
 func TestUploadZipRetry(t *testing.T) {
-	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
-	uploader := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: .01,
-		maxRetries:  3.0,
-	}
+	uploader := newStore(2)
 
 	callCount := int32(0)
 	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
 		atomic.AddInt32(&callCount, 1)
 	})
-	uploader.client = http
+	uploader.client.HTTPClient = http
 	err := uploader.Upload(u, testFile().Name(), true)
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
@@ -377,18 +350,12 @@ func TestUploadZipRetry(t *testing.T) {
 }
 
 func TestDownloadZip(t *testing.T) {
-	token := "faketoken"
 	abspath, _ := filepath.Abs("./")
 	testfilepath := abspath + "/../data/test.zip"
 	testfilepath = url.PathEscape(testfilepath)
 
 	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/1234/" + testfilepath)
-	downloader := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: 1.0,
-		maxRetries:  3.0,
-	}
+	downloader := newStore(2)
 	called := false
 
 	http := makeFakeZipHTTPClient(t, 200, "OK", func(r *http.Request) {
@@ -403,7 +370,7 @@ func TestDownloadZip(t *testing.T) {
 		}
 	})
 
-	downloader.client = http
+	downloader.client.HTTPClient = http
 	_ = downloader.Download(u, true)
 
 	want, _ := ioutil.ReadFile("../data/emitterdata")
@@ -428,20 +395,14 @@ func TestDownloadZip(t *testing.T) {
 }
 
 func TestDownloadRetry(t *testing.T) {
-	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
-	downloader := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: .01,
-		maxRetries:  3.0,
-	}
+	downloader := newStore(2)
 
 	callCount := 0
 	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
 		callCount++
 	})
-	downloader.client = http
+	downloader.client.HTTPClient = http
 	err := downloader.Download(u, false)
 	if err == nil {
 		t.Error("Expected error from downloader.Download(), got nil")
@@ -452,15 +413,9 @@ func TestDownloadRetry(t *testing.T) {
 }
 
 func TestDownloadWriteBack(t *testing.T) {
-	token := "faketoken"
 	testfilepath := "/tmp/test-data/node_modules/schema/file"
 	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/1234/" + testfilepath)
-	downloader := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: 1.0,
-		maxRetries:  3.0,
-	}
+	downloader := newStore(2)
 	called := false
 
 	want := "test-content"
@@ -473,7 +428,7 @@ func TestDownloadWriteBack(t *testing.T) {
 		}
 	})
 
-	downloader.client = http
+	downloader.client.HTTPClient = http
 	_ = downloader.Download(u, false)
 
 	filecontent, err := ioutil.ReadFile(testfilepath)
@@ -491,16 +446,10 @@ func TestDownloadWriteBack(t *testing.T) {
 }
 
 func TestDownloadWriteBackSpecialFile(t *testing.T) {
-	token := "faketoken"
 	testfolder := "/tmp/test-data/node_modules/schema/"
 	testfilename := "!-_.*'()&@:,.$= ?; space"
 	u, _ := url.Parse("http://fakestore.example.com/v1/caches/events/1234/" + testfolder + "%21-_.%2A%27%28%29%26%40%3A%2C.%24%3D%2B%3F%3B+space")
-	downloader := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: 1.0,
-		maxRetries:  3.0,
-	}
+	downloader := newStore(2)
 	called := false
 
 	want := "test-content"
@@ -513,7 +462,7 @@ func TestDownloadWriteBackSpecialFile(t *testing.T) {
 		}
 	})
 
-	downloader.client = http
+	downloader.client.HTTPClient = http
 	_ = downloader.Download(u, false)
 
 	fileInfo, err := os.Stat(testfolder + testfilename)
@@ -532,14 +481,8 @@ func TestDownloadWriteBackSpecialFile(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
-	removeRes := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: 1.0,
-		maxRetries:  3.0,
-	}
+	removeRes := newStore(2)
 	called := false
 
 	http := makeFakeHTTPClient(t, 202, "OK", func(r *http.Request) {
@@ -550,7 +493,7 @@ func TestRemove(t *testing.T) {
 		}
 	})
 
-	removeRes.client = http
+	removeRes.client.HTTPClient = http
 	err := removeRes.Remove(u)
 
 	if err != nil {
@@ -563,20 +506,14 @@ func TestRemove(t *testing.T) {
 }
 
 func TestRemoveRetry(t *testing.T) {
-	token := "faketoken"
 	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
-	removeRes := &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 10 * time.Second},
-		retryScaler: .01,
-		maxRetries:  3.0,
-	}
+	removeRes := newStore(2)
 
 	callCount := 0
 	http := makeFakeHTTPClient(t, 500, "ERROR", func(r *http.Request) {
 		callCount++
 	})
-	removeRes.client = http
+	removeRes.client.HTTPClient = http
 	err := removeRes.Remove(u)
 	if err == nil {
 		t.Errorf("Expected error from removeRes.Remove(), got nil")
@@ -610,95 +547,4 @@ func TestZipAndUnzipWithSymlink(t *testing.T) {
 
 	os.RemoveAll("../data/test")
 	os.RemoveAll("../data/testsymlink.zip")
-}
-
-func TestBackOff(t *testing.T) {
-	client := newStore(1.5, 5)
-	cases := []struct {
-		attemptNum  int
-		backoffTime time.Duration
-	}{
-		{attemptNum: 1, backoffTime: 1 * time.Second},
-		{attemptNum: 5, backoffTime: 37 * time.Second},
-	}
-
-	for _, c := range cases {
-		bt := client.backOff(c.attemptNum)
-		assert.Equal(t, c.backoffTime, bt, fmt.Sprintf("when attempt number is %v", c.attemptNum))
-		if bt != c.backoffTime {
-			t.Errorf("Expected time is %q. But Got %q", c.backoffTime, bt)
-		}
-	}
-}
-
-func TestCheckForRetry(t *testing.T) {
-	client := newStore(1.0, 3)
-
-	cases := []struct {
-		err        error
-		statusCode int
-		doesRetry  bool
-		retryErr   error
-	}{
-		{err: fmt.Errorf("awful things happen"), statusCode: 0, doesRetry: true, retryErr: fmt.Errorf("awful things happen")},
-		// statut 200~
-		{statusCode: http.StatusOK, doesRetry: false},
-		{statusCode: http.StatusCreated, doesRetry: false},
-		{statusCode: http.StatusAccepted, doesRetry: false},
-		{statusCode: http.StatusNoContent, doesRetry: false},
-		// status 400~
-		{statusCode: http.StatusBadRequest, doesRetry: false, retryErr: fmt.Errorf("got code 400. stop retrying")},
-		{statusCode: http.StatusUnauthorized, doesRetry: false, retryErr: fmt.Errorf("got code 401. stop retrying")},
-		{statusCode: http.StatusForbidden, doesRetry: false, retryErr: fmt.Errorf("got code 403. stop retrying")},
-		{statusCode: http.StatusNotFound, doesRetry: false, retryErr: fmt.Errorf("got code 404. stop retrying")},
-		{statusCode: http.StatusRequestTimeout, doesRetry: true, retryErr: fmt.Errorf("got code 408")},
-		// status 500~
-		{err: nil, statusCode: http.StatusInternalServerError, doesRetry: true, retryErr: fmt.Errorf("got code 500")},
-	}
-
-	for _, c := range cases {
-		res := &http.Response{}
-		res.StatusCode = c.statusCode
-		res.Status = fmt.Sprintf("code %d", res.StatusCode)
-		retry, err := client.checkForRetry(res, c.err)
-		assert.Equal(t, c.doesRetry, retry, fmt.Sprintf("when status is %d and err is %q", c.statusCode, c.err))
-		assert.Equal(t, c.retryErr, err, "when status is %d and err is %q", c.statusCode, c.err)
-	}
-}
-
-func TestDo(t *testing.T) {
-	client := newStore(.01, 4)
-	req, _ := http.NewRequest("GET", "http://fakestore.example.com/v1/test", nil)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", client.token))
-
-	cases := []struct {
-		statusCode  int
-		body        string
-		callCount   int
-		err         error
-		responseNil bool
-	}{
-		{statusCode: 500, body: "ERROR", callCount: 4, err: fmt.Errorf("getting error from http://fakestore.example.com/v1/test after 4 retries: got 500 Internal Server Error"), responseNil: true},
-		{statusCode: 200, body: "test-contents", callCount: 1},
-		{statusCode: 404, body: "Not Found", callCount: 1, err: fmt.Errorf("got 404 Not Found from http://fakestore.example.com/v1/test. stop retrying")},
-	}
-
-	for _, c := range cases {
-		when := fmt.Sprintf("when statusCode %d and body %s", c.statusCode, c.body)
-		callCount := 0
-		client.client = makeFakeHTTPClient(t, c.statusCode, c.body, func(r *http.Request) {
-			callCount++
-		})
-		res, err := client.do(req)
-
-		assert.Equal(t, c.callCount, callCount, when)
-		assert.Exactly(t, c.err, err, when)
-		if c.responseNil {
-			assert.Nil(t, res, when)
-		} else {
-			b, _ := ioutil.ReadAll(res.Body)
-			assert.Equal(t, c.body, string(b), when)
-			res.Body.Close()
-		}
-	}
 }

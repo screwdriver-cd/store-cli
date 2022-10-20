@@ -14,7 +14,16 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
+
+const retryWaitMin = 100
+const retryWaitMax = 300
+
+var maxRetries = 5
+var httpTimeout = time.Duration(20) * time.Second
+var UTCLoc, _ = time.LoadLocation("UTC")
 
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
@@ -24,19 +33,23 @@ type SDStore interface {
 }
 
 type sdStore struct {
-	token       string
-	client      *http.Client
-	retryScaler float64
-	maxRetries  int
+	token  string
+	client *retryablehttp.Client
 }
 
 // NewStore returns an SDStore instance.
 func NewStore(token string) SDStore {
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = maxRetries
+	retryClient.RetryWaitMin = time.Duration(retryWaitMin) * time.Millisecond
+	retryClient.RetryWaitMax = time.Duration(retryWaitMax) * time.Millisecond
+	retryClient.Backoff = retryablehttp.LinearJitterBackoff
+	retryClient.HTTPClient.Timeout = httpTimeout
+	retryClient.CheckRetry = retryablehttp.DefaultRetryPolicy
+
 	return &sdStore{
-		token:       token,
-		client:      &http.Client{Timeout: 300 * time.Second},
-		retryScaler: 1.0,
-		maxRetries:  3,
+		token:  token,
+		client: retryClient,
 	}
 }
 
@@ -76,7 +89,7 @@ func (e SDError) Error() string {
 
 // Remove a file from a path within the SD Store
 func (s *sdStore) Remove(u *url.URL) error {
-	err := s.remove(u)
+	err := s.remove(u.String())
 	if err != nil {
 		return err
 	}
@@ -92,12 +105,10 @@ func (s *sdStore) Download(url *url.URL, toExtract bool) error {
 		urlString += ".zip"
 	}
 
-	res, err := s.get(urlString)
+	body, err := s.get(urlString)
 	if err != nil {
 		return err
 	}
-
-	defer res.Body.Close()
 
 	// Read file
 	filePath := getFilePath(url)
@@ -122,7 +133,7 @@ func (s *sdStore) Download(url *url.URL, toExtract bool) error {
 		}
 		defer file.Close()
 
-		_, err = io.Copy(file, res.Body)
+		_, err = file.Write(body)
 		if err != nil {
 			return err
 		}
@@ -266,7 +277,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 	return nil
 }
 
-// return file size suitible for logging (ignores errors)
+// return file size suitable for logging (ignores errors)
 func fileSize(path string) string {
 	file, err := os.Open(path)
 	if err != nil {
@@ -285,157 +296,135 @@ func tokenHeader(token string) string {
 	return fmt.Sprintf("Bearer %s", token)
 }
 
-// Check the response for HTTP error.
-func checkError(res *http.Response) error {
-	if res.StatusCode/100 != 2 {
-		defer res.Body.Close()
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return fmt.Errorf("HTTP %d and failed to read body: %v", res.StatusCode, err)
-		}
-		return fmt.Errorf("HTTP %d returned: %s", res.StatusCode, body)
-	}
-
-	// 2xx is success
-	return nil
-}
-
 // DELETE request
-func (s *sdStore) remove(url *url.URL) error {
-	res, err := s.retryingRequest(url.String(), "DELETE")
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	return nil
+func (s *sdStore) remove(url string) error {
+	_, err := s.request(url, "DELETE")
+	return err
 }
 
 // GET request; caller should close response.Body
-func (s *sdStore) get(url string) (*http.Response, error) {
-	return s.retryingRequest(url, "GET")
+func (s *sdStore) get(url string) ([]byte, error) {
+	return s.request(url, "GET")
 }
 
-// Common between GET and DELETE
-func (s *sdStore) retryingRequest(url string, method string) (*http.Response, error) {
-	req, err := http.NewRequest(method, url, nil)
+func (s *sdStore) request(url string, requestType string) ([]byte, error) {
+	req, err := http.NewRequest(requestType, url, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Generating request to Screwdriver: %v", err)
 	}
+
+	defer s.client.HTTPClient.CloseIdleConnections()
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
-	res, err := s.do(req)
-	if err != nil {
-		return nil, err
+
+	res, err := s.client.StandardClient().Do(req)
+
+	if res != nil {
+		defer res.Body.Close()
 	}
 
-	// Check for error
-	err = checkError(res)
 	if err != nil {
-		return nil, err
+		log.Printf("WARNING: received error from %s(%s): %v ", requestType, url, err)
+		return nil, fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url, err)
 	}
 
-	return res, nil
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("reading response Body from Store API: %v", err)
+		return nil, fmt.Errorf("reading response Body from Store API: %v", err)
+	}
+
+	if res.StatusCode/100 != 2 {
+		var errParse SDError
+		parseError := json.Unmarshal(body, &errParse)
+		if parseError != nil {
+			log.Printf("unparsable error response from Store API: %v", parseError)
+			return nil, fmt.Errorf("unparsable error response from Store API: %v", parseError)
+		}
+
+		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url)
+		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url)
+	}
+
+	return body, nil
 }
 
 // putFile writes a file at filePath to a url with a PUT request. It streams the data from disk to save memory
-// Need to retry here so that we can re-open the file cuz httpClient closes the file after each request
 func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error {
-	attemptNum := 0
-
-	for {
-		attemptNum = attemptNum + 1
-
-		input, err := os.Open(filePath)
-		if err != nil {
-			return err
-		}
-		defer input.Close()
-
-		stat, err := input.Stat()
-		if err != nil {
-			return err
-		}
-		fsize := stat.Size()
-
-		res, err := s.put(url, bodyType, input, fsize)
-		if res != nil {
-			defer res.Body.Close()
-		}
-
-		retry, err := s.checkForRetry(res, err)
-
-		if !retry {
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-		log.Printf("(Try %d of %d) error received from %s %v: %v", attemptNum, s.maxRetries, "PUT", url, err)
-
-		if attemptNum == s.maxRetries {
-			return err
-		}
-		time.Sleep(s.backOff(attemptNum))
+	input, err := os.Open(filePath)
+	if err != nil {
+		return err
 	}
+	defer input.Close()
+
+	stat, err := input.Stat()
+	if err != nil {
+		return err
+	}
+	fsize := stat.Size()
+
+	reader, writer := io.Pipe()
+
+	done := make(chan error)
+	go func() {
+		_, err := s.put(url, bodyType, reader, fsize)
+		if err != nil {
+			done <- err
+			return
+		}
+
+		done <- nil
+	}()
+
+	io.Copy(writer, input)
+	if err := writer.Close(); err != nil {
+		return err
+	}
+
+	return <-done
 }
 
-// PUT request to SD store
-func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int64) (*http.Response, error) {
-	req, err := http.NewRequest("PUT", url.String(), payload)
+func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int64) ([]byte, error) {
+	requestType := "PUT"
+	req, err := http.NewRequest(requestType, url.String(), payload)
 	if err != nil {
-		return nil, err
+		log.Printf("WARNING: received error generating new request for %s(%s): %v ", requestType, url.String(), err)
+		return nil, fmt.Errorf("WARNING: received error generating new request for %s(%s): %v ", requestType, url.String(), err)
 	}
+
+	defer s.client.HTTPClient.CloseIdleConnections()
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
 	req.Header.Set("Content-Type", bodyType)
 	req.ContentLength = size
 
-	res, err := s.client.Do(req)
-
-	return res, err
-}
-
-func (s *sdStore) backOff(attemptNum int) time.Duration {
-	return time.Duration(float64(attemptNum*attemptNum)*s.retryScaler) * time.Second
-}
-
-func (s *sdStore) checkForRetry(res *http.Response, err error) (bool, error) {
-	if err != nil {
-		log.Printf("failed to request to store: %v", err)
-		return true, err
+	res, err := s.client.StandardClient().Do(req)
+	if res != nil {
+		defer res.Body.Close()
 	}
-	if res.StatusCode/100 == 4 && res.StatusCode != http.StatusRequestTimeout && res.StatusCode != http.StatusTooManyRequests {
-		if res.Request != nil && res.Request.URL != nil {
-			return false, fmt.Errorf("got %s from %s. stop retrying", res.Status, res.Request.URL)
-		}
-		return false, fmt.Errorf("got %s. stop retrying", res.Status)
+
+	if err != nil {
+		log.Printf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+		return nil, fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Printf("reading response Body from Store API: %v", err)
+		return nil, fmt.Errorf("reading response Body from Store API: %v", err)
 	}
 
 	if res.StatusCode/100 != 2 {
-		return true, fmt.Errorf("got %s", res.Status)
+		var errParse SDError
+		parseError := json.Unmarshal(body, &errParse)
+		if parseError != nil {
+			log.Printf("unparsable error response from Store API: %v", parseError)
+			return nil, fmt.Errorf("unparsable error response from Store API: %v", parseError)
+		}
+
+		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
 	}
 
-	return false, nil
-}
-
-func (s *sdStore) do(req *http.Request) (*http.Response, error) {
-
-	attemptNum := 0
-	for {
-		attemptNum = attemptNum + 1
-
-		res, err := s.client.Do(req)
-
-		retry, err := s.checkForRetry(res, err)
-		if !retry {
-			return res, err
-		}
-		log.Printf("(Try %d of %d) error received from %s %v: %v", attemptNum, s.maxRetries, req.Method, req.URL, err)
-
-		if attemptNum == s.maxRetries {
-			return nil, fmt.Errorf("getting error from %s after %d retries: %v", req.URL, s.maxRetries, err)
-		}
-		time.Sleep(s.backOff(attemptNum))
-	}
+	return body, nil
 }
