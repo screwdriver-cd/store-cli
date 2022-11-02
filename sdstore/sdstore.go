@@ -22,7 +22,7 @@ const retryWaitMin = 100
 const retryWaitMax = 300
 
 var maxRetries = 5
-var httpTimeout = time.Duration(20) * time.Second
+var httpTimeout = time.Duration(60) * time.Second
 var UTCLoc, _ = time.LoadLocation("UTC")
 
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
