@@ -351,67 +351,37 @@ func (s *sdStore) request(url string, requestType string) ([]byte, error) {
 
 // putFile writes a file at filePath to a url with a PUT request. It streams the data from disk to save memory
 func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error {
-	input, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer input.Close()
-
-	stat, err := input.Stat()
-	if err != nil {
-		return err
-	}
-	fsize := stat.Size()
-
-	reader, writer := io.Pipe()
-
-	done := make(chan error)
-	go func() {
-		_, err := s.put(url, bodyType, reader, fsize)
-		if err != nil {
-			done <- err
-			return
-		}
-
-		done <- nil
-	}()
-
-	io.Copy(writer, input)
-	if err := writer.Close(); err != nil {
-		return err
-	}
-
-	return <-done
-}
-
-func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int64) ([]byte, error) {
 	requestType := "PUT"
-	req, err := http.NewRequest(requestType, url.String(), payload)
+	req, err := retryablehttp.NewRequest(requestType, url.String(), func() (io.Reader, error) {
+		return os.Open(filePath)
+	})
 	if err != nil {
 		log.Printf("WARNING: received error generating new request for %s(%s): %v ", requestType, url.String(), err)
-		return nil, fmt.Errorf("WARNING: received error generating new request for %s(%s): %v ", requestType, url.String(), err)
+		return fmt.Errorf("WARNING: received error generating new request for %s(%s): %v ", requestType, url.String(), err)
 	}
 
 	defer s.client.HTTPClient.CloseIdleConnections()
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
 	req.Header.Set("Content-Type", bodyType)
-	req.ContentLength = size
+	if fi, err := os.Stat(filePath); err == nil {
+		req.ContentLength = fi.Size()
+	}
 
-	res, err := s.client.StandardClient().Do(req)
+	res, err := s.client.Do(req)
 	if res != nil {
 		defer res.Body.Close()
 	}
 
 	if err != nil {
 		log.Printf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
-		return nil, fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
+		return fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url.String(), err)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Printf("reading response Body from Store API: %v", err)
-		return nil, fmt.Errorf("reading response Body from Store API: %v", err)
+		return fmt.Errorf("reading response Body from Store API: %v", err)
 	}
 
 	if res.StatusCode/100 != 2 {
@@ -419,12 +389,12 @@ func (s *sdStore) put(url *url.URL, bodyType string, payload io.Reader, size int
 		parseError := json.Unmarshal(body, &errParse)
 		if parseError != nil {
 			log.Printf("unparsable error response from Store API: %v", parseError)
-			return nil, fmt.Errorf("unparsable error response from Store API: %v", parseError)
+			return fmt.Errorf("unparsable error response from Store API: %v", parseError)
 		}
 
 		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
-		return nil, fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+		return fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
 	}
 
-	return body, nil
+	return nil
 }
