@@ -18,11 +18,6 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-const retryWaitMin = 100
-const retryWaitMax = 300
-
-var maxRetries = 5
-var httpTimeout = time.Duration(60) * time.Second
 var UTCLoc, _ = time.LoadLocation("UTC")
 
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
@@ -38,13 +33,13 @@ type sdStore struct {
 }
 
 // NewStore returns an SDStore instance.
-func NewStore(token string) SDStore {
+func NewStore(token string, maxRetries int, httpTimeout int, retryWaitMin int, retryWaitMax int) SDStore {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = maxRetries
 	retryClient.RetryWaitMin = time.Duration(retryWaitMin) * time.Millisecond
 	retryClient.RetryWaitMax = time.Duration(retryWaitMax) * time.Millisecond
 	retryClient.Backoff = retryablehttp.LinearJitterBackoff
-	retryClient.HTTPClient.Timeout = httpTimeout
+	retryClient.HTTPClient.Timeout = time.Duration(httpTimeout) * time.Second
 	retryClient.CheckRetry = retryablehttp.DefaultRetryPolicy
 
 	return &sdStore{

@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/screwdriver-cd/store-cli/sdstore"
-	"github.com/urfave/cli"
 	"log"
 	"net/url"
 	"os"
@@ -11,12 +9,25 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"github.com/screwdriver-cd/store-cli/sdstore"
+	"github.com/urfave/cli"
 )
 
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
 var CacheStrategy = strings.ToLower(os.Getenv("SD_CACHE_STRATEGY"))
 var CacheMaxSizeInMB, _ = strconv.ParseInt(os.Getenv("SD_CACHE_MAX_SIZE_MB"), 0, 64)
+
+// Configurable values for store-cli Upload/Download/Remove operations
+var MAX_RETRIES = 5      // int
+var RETRY_WAIT_MIN = 100 // ms
+var RETRY_WAIT_MAX = 300 // ms
+
+// http timeout for Upload/Download/Remove operations
+var UPLOAD_HTTP_TIMEOUT = 60    // seconds
+var DOWNLOAD_HTTP_TIMEOUT = 300 // seconds
+var REMOVE_HTTP_TIMEOUT = 300   // seconds
 
 // successExit exits process with 0
 func successExit() {
@@ -125,7 +136,7 @@ func get(storeType, scope, key string) error {
 		if err != nil {
 			return err
 		}
-		store := sdstore.NewStore(sdToken)
+		store := sdstore.NewStore(sdToken, MAX_RETRIES, DOWNLOAD_HTTP_TIMEOUT, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
 
 		var toExtract bool
 
@@ -155,7 +166,7 @@ func set(storeType, scope, filePath string) error {
 		if err != nil {
 			return err
 		}
-		store := sdstore.NewStore(sdToken)
+		store := sdstore.NewStore(sdToken, MAX_RETRIES, UPLOAD_HTTP_TIMEOUT, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
 
 		var toCompress bool
 
@@ -179,7 +190,7 @@ func remove(storeType, scope, key string) error {
 		return sdstore.Cache2Disk("remove", scope, key, CacheMaxSizeInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
-		store := sdstore.NewStore(sdToken)
+		store := sdstore.NewStore(sdToken, MAX_RETRIES, REMOVE_HTTP_TIMEOUT, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
 
 		if storeType == "cache" {
 			md5URL, err := makeURL(storeType, scope, fmt.Sprintf("%s%s", filepath.Clean(key), "_md5.json"))
