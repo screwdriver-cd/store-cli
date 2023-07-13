@@ -25,9 +25,9 @@ var RETRY_WAIT_MIN = 100 // ms
 var RETRY_WAIT_MAX = 300 // ms
 
 // http timeout for Upload/Download/Remove operations
-var UPLOAD_HTTP_TIMEOUT = 60    // seconds
-var DOWNLOAD_HTTP_TIMEOUT = 300 // seconds
-var REMOVE_HTTP_TIMEOUT = 300   // seconds
+var UPLOAD_HTTP_TIMEOUT int
+var DOWNLOAD_HTTP_TIMEOUT int
+var REMOVE_HTTP_TIMEOUT int
 
 // successExit exits process with 0
 func successExit() {
@@ -223,6 +223,26 @@ func remove(storeType, scope, key string) error {
 		}
 		return store.Remove(fullURL)
 	}
+}
+
+func init() {
+	UPLOAD_HTTP_TIMEOUT = getEnvAsInt("SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT", 60)
+	DOWNLOAD_HTTP_TIMEOUT = getEnvAsInt("SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT", 300)
+	REMOVE_HTTP_TIMEOUT = getEnvAsInt("SD_STORE_CLI_REMOVE_HTTP_TIMEOUT", 300)
+}
+
+func getEnvAsInt(envName string, defaultVal int) int {
+	valStr := os.Getenv(envName)
+	if valStr == "" {
+		return defaultVal
+	}
+
+	val, err := strconv.ParseInt(valStr, 10, 0)
+	if err != nil {
+		log.Panicf("An error occurred: %s", err)
+	}
+
+	return int(val)
 }
 
 func main() {

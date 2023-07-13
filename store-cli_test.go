@@ -100,3 +100,36 @@ func TestMakeURL(t *testing.T) {
 		t.Fatalf("Expected error, got nil")
 	}
 }
+
+func TestGetEnvAsInt(t *testing.T) {
+
+	testCases := []struct {
+		envName     string
+		envValue    string
+		defaultVal  int
+		expected    int
+		shouldPanic bool
+	}{
+		{"TESTENV", "600", 500, 600, false}, // 正常系
+		{"DEFAULTENV", "", 500, 500, false}, // 準正常系
+		{"ERRORENV", "test", 500, 0, true},  // 異常系
+	}
+
+	for _, testCase := range testCases {
+		os.Setenv(testCase.envName, testCase.envValue)
+
+		if testCase.shouldPanic {
+			defer func() {
+				if r := recover(); r == nil {
+					t.Errorf("Expected a panic for env: %s", testCase.envName)
+				}
+			}()
+		}
+
+		result := getEnvAsInt(testCase.envName, testCase.defaultVal)
+		if !testCase.shouldPanic && result != testCase.expected {
+			t.Errorf("Expected %d but got %d for env: %s", testCase.expected, result, testCase.envName)
+		}
+	}
+
+}
