@@ -225,26 +225,6 @@ func remove(storeType, scope, key string) error {
 	}
 }
 
-func init() {
-	UPLOAD_HTTP_TIMEOUT = getEnvAsInt("SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT", 60)
-	DOWNLOAD_HTTP_TIMEOUT = getEnvAsInt("SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT", 300)
-	REMOVE_HTTP_TIMEOUT = getEnvAsInt("SD_STORE_CLI_REMOVE_HTTP_TIMEOUT", 300)
-}
-
-func getEnvAsInt(envName string, defaultVal int) int {
-	valStr := os.Getenv(envName)
-	if valStr == "" {
-		return defaultVal
-	}
-
-	val, err := strconv.ParseInt(valStr, 10, 0)
-	if err != nil {
-		log.Panicf("An error occurred: %s", err)
-	}
-
-	return int(val)
-}
-
 func main() {
 	defer finalRecover()
 
@@ -266,6 +246,27 @@ func main() {
 			Name:  "type",
 			Usage: "Type of the command. For example: cache, artifacts, steps",
 			Value: "stable",
+		},
+		cli.IntFlag{
+			Name:        "upload-timeout",
+			Usage:       "Specifies the upload timeout in seconds.",
+			Value:       60,
+			EnvVar:      "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
+			Destination: &UPLOAD_HTTP_TIMEOUT,
+		},
+		cli.IntFlag{
+			Name:        "download-timeout",
+			Usage:       "Specifies the download timeout in seconds.",
+			Value:       300,
+			EnvVar:      "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
+			Destination: &DOWNLOAD_HTTP_TIMEOUT,
+		},
+		cli.IntFlag{
+			Name:        "remove-timeout",
+			Usage:       "Specifies the removal timeout in seconds.",
+			Value:       300,
+			EnvVar:      "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT",
+			Destination: &REMOVE_HTTP_TIMEOUT,
 		},
 	}
 
