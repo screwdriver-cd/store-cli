@@ -48,10 +48,6 @@ For example, if you want to cache the `node_modules` folder within the `event` s
 
 store-cli has dependency on ZStandard v1.4.8 (https://github.com/facebook/zstd)
 
-To test in your local, please access the following website and execute 'make' locally.
-
-https://github.com/facebook/zstd/releases/tag/v1.4.8
-
-The site below can be useful when you're executing 'make' for zstd.
-
-https://github.com/facebook/zstd#makefile
+To test locally in download binaries from screwdrivercd bintray and set path
+    <li> mac   => download zstd-cli-macosx binary from https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-macosx.tar.gz
+    <li> linux => download zstd-cli-linux binary from https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux.tar.gz

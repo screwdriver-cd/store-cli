@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+        "runtime"
 	"strings"
 	"time"
 )
@@ -102,8 +103,15 @@ func acquireLock(path string, read bool) error {
 }
 
 // ZStandard from https://github.com/facebook/zstd
+// To test in mac - download from https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-macosx.tar.gz and set path
+// To test in linux - download from https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux.tar.gz and set path
 func getZstdBinary() string {
-	return "zstd"
+	switch runtime.GOOS {
+	case "darwin":
+		return "zstd-cli-macosx"
+	default:
+		return "zstd-cli-linux"
+	}
 }
 
 /*
