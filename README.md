@@ -22,6 +22,9 @@ COMMANDS:
 GLOBAL OPTIONS:
    --scope value  Scope of command. For example: event, build, pipeline
    --type value   Type of the command. For example: cache, artifacts, steps (default: "stable")
+   --upload-timeout value    Specifies the upload timeout in seconds. (default: 60) [$SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT]
+   --download-timeout value  Specifies the download timeout in seconds. (default: 300) [$SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT]
+   --remove-timeout value    Specifies the removal timeout in seconds. (default: 300) [$SD_STORE_CLI_REMOVE_HTTP_TIMEOUT]
    --help, -h     show help
    --version, -v  print the version
 
@@ -43,8 +46,12 @@ For example, if you want to cache the `node_modules` folder within the `event` s
 
 ## Dependency
 
-store-cli has dependency on ZStandard (https://github.com/facebook/zstd)
+store-cli has dependency on ZStandard v1.4.8 (https://github.com/facebook/zstd)
 
-To test locally in download binaries from screwdrivercd bintray and set path
-    <li> mac   => download zstd-cli-macosx binary from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz 
-    <li> linux => download zstd-cli-linux binary from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz
+To test in your local, please access the following website and execute 'make' locally.
+
+https://github.com/facebook/zstd/releases/tag/v1.4.8
+
+The site below can be useful when you're executing 'make' for zstd.
+
+https://github.com/facebook/zstd#makefile
