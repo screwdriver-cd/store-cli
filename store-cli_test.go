@@ -100,3 +100,59 @@ func TestMakeURL(t *testing.T) {
 		t.Fatalf("Expected error, got nil")
 	}
 }
+
+func TestGetTimeout(t *testing.T) {
+	testCases := []struct {
+		name           string
+		flagTimeout    int
+		envName        string
+		defaultTimeout int
+		expected       int
+		envValue       string
+	}{
+		{
+			name:           "use flag timeout",
+			flagTimeout:    50,
+			envName:        "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
+			defaultTimeout: 60,
+			expected:       50,
+			envValue:       "",
+		},
+		{
+			name:           "use environment timeout",
+			flagTimeout:    0,
+			envName:        "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
+			defaultTimeout: 60,
+			expected:       70,
+			envValue:       "70",
+		},
+		{
+			name:           "use default timeout",
+			flagTimeout:    0,
+			envName:        "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
+			defaultTimeout: 60,
+			expected:       60,
+			envValue:       "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.envValue != "" {
+				os.Setenv(tc.envName, tc.envValue)
+			}
+
+			got, err := getTimeout(tc.flagTimeout, tc.envName, tc.defaultTimeout)
+			if err != nil {
+				t.Fatalf("getTimeout() error = %v", err)
+				return
+			}
+			if got != tc.expected {
+				t.Fatalf("getTimeout() got = %v, want %v", got, tc.expected)
+			}
+
+			// Clear environment value for the next test case.
+			os.Unsetenv(tc.envName)
+		})
+	}
+}
