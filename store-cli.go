@@ -315,7 +315,6 @@ func main() {
 				}
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
-				timeout := int(c.Int("timeout"))
 				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT", 300)
 				key := c.Args().Get(0)
 				err = remove(storeType, scope, key, timeout)
