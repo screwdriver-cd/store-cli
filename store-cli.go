@@ -24,11 +24,6 @@ var MAX_RETRIES = 5      // int
 var RETRY_WAIT_MIN = 100 // ms
 var RETRY_WAIT_MAX = 300 // ms
 
-// http timeout for Upload/Download/Remove operations
-var UPLOAD_HTTP_TIMEOUT int
-var DOWNLOAD_HTTP_TIMEOUT int
-var REMOVE_HTTP_TIMEOUT int
-
 // successExit exits process with 0
 func successExit() {
 	os.Exit(0)
@@ -122,7 +117,7 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 	return url.Parse(fullpath)
 }
 
-func get(storeType, scope, key string) error {
+func get(storeType, scope, key string, timeout int) error {
 	if skipCache(storeType, scope, "get") {
 		return nil
 	}
@@ -136,7 +131,7 @@ func get(storeType, scope, key string) error {
 		if err != nil {
 			return err
 		}
-		store := sdstore.NewStore(sdToken, MAX_RETRIES, DOWNLOAD_HTTP_TIMEOUT, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
+		store := sdstore.NewStore(sdToken, MAX_RETRIES, timeout, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
 
 		var toExtract bool
 
@@ -152,7 +147,7 @@ func get(storeType, scope, key string) error {
 	}
 }
 
-func set(storeType, scope, filePath string) error {
+func set(storeType, scope, filePath string, timeout int) error {
 	if skipCache(storeType, scope, "set") {
 		return nil
 	}
@@ -166,7 +161,7 @@ func set(storeType, scope, filePath string) error {
 		if err != nil {
 			return err
 		}
-		store := sdstore.NewStore(sdToken, MAX_RETRIES, UPLOAD_HTTP_TIMEOUT, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
+		store := sdstore.NewStore(sdToken, MAX_RETRIES, timeout, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
 
 		var toCompress bool
 
@@ -181,7 +176,7 @@ func set(storeType, scope, filePath string) error {
 
 }
 
-func remove(storeType, scope, key string) error {
+func remove(storeType, scope, key string, timeout int) error {
 	if skipCache(storeType, scope, "remove") {
 		return nil
 	}
@@ -190,7 +185,7 @@ func remove(storeType, scope, key string) error {
 		return sdstore.Cache2Disk("remove", scope, key, CacheMaxSizeInMB)
 	} else {
 		sdToken := os.Getenv("SD_TOKEN")
-		store := sdstore.NewStore(sdToken, MAX_RETRIES, REMOVE_HTTP_TIMEOUT, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
+		store := sdstore.NewStore(sdToken, MAX_RETRIES, timeout, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
 
 		if storeType == "cache" {
 			md5URL, err := makeURL(storeType, scope, fmt.Sprintf("%s%s", filepath.Clean(key), "_md5.json"))
@@ -225,6 +220,19 @@ func remove(storeType, scope, key string) error {
 	}
 }
 
+func getTimeout(flagTimeout int, envValue string, defaultTimeout int) (int, error) {
+	if flagTimeout != 0 {
+		return flagTimeout, nil
+	}
+
+	envTimeout, err := strconv.Atoi(os.Getenv(envValue))
+	if err != nil || envTimeout == 0 {
+		return defaultTimeout, nil
+	}
+
+	return envTimeout, nil
+}
+
 func main() {
 	defer finalRecover()
 
@@ -248,25 +256,9 @@ func main() {
 			Value: "stable",
 		},
 		cli.IntFlag{
-			Name:        "upload-timeout",
-			Usage:       "Specifies the upload timeout in seconds.",
-			Value:       60,
-			EnvVar:      "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
-			Destination: &UPLOAD_HTTP_TIMEOUT,
-		},
-		cli.IntFlag{
-			Name:        "download-timeout",
-			Usage:       "Specifies the download timeout in seconds.",
-			Value:       300,
-			EnvVar:      "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
-			Destination: &DOWNLOAD_HTTP_TIMEOUT,
-		},
-		cli.IntFlag{
-			Name:        "remove-timeout",
-			Usage:       "Specifies the removal timeout in seconds.",
-			Value:       300,
-			EnvVar:      "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT",
-			Destination: &REMOVE_HTTP_TIMEOUT,
+			Name:  "timeout",
+			Usage: "Specifies the timeout in seconds.",
+			Value: 0,
 		},
 	}
 
@@ -280,8 +272,12 @@ func main() {
 				}
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
+				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT", 60)
+				if err != nil {
+					failureExit(err)
+				}
 				key := c.Args().Get(0)
-				err := get(storeType, scope, key)
+				err = get(storeType, scope, key, timeout)
 				if err != nil {
 					failureExit(err)
 				}
@@ -299,8 +295,9 @@ func main() {
 				}
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
+				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT", 300)
 				key := c.Args().Get(0)
-				err := set(storeType, scope, key)
+				err = set(storeType, scope, key, timeout)
 				if err != nil {
 					failureExit(err)
 				}
@@ -318,8 +315,10 @@ func main() {
 				}
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
+				timeout := int(c.Int("timeout"))
+				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT", 300)
 				key := c.Args().Get(0)
-				err := remove(storeType, scope, key)
+				err = remove(storeType, scope, key, timeout)
 				if err != nil {
 					failureExit(err)
 				}
