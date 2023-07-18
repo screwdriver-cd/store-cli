@@ -104,7 +104,7 @@ func TestMakeURL(t *testing.T) {
 func TestGetTimeout(t *testing.T) {
 	testCases := []struct {
 		name           string
-		flagTimeout    int
+		flagTimeout    string
 		envName        string
 		defaultTimeout int
 		expected       int
@@ -112,7 +112,7 @@ func TestGetTimeout(t *testing.T) {
 	}{
 		{
 			name:           "use flag timeout",
-			flagTimeout:    50,
+			flagTimeout:    "50",
 			envName:        "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
 			defaultTimeout: 60,
 			expected:       50,
@@ -120,7 +120,7 @@ func TestGetTimeout(t *testing.T) {
 		},
 		{
 			name:           "use environment timeout",
-			flagTimeout:    0,
+			flagTimeout:    "",
 			envName:        "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
 			defaultTimeout: 60,
 			expected:       70,
@@ -128,7 +128,7 @@ func TestGetTimeout(t *testing.T) {
 		},
 		{
 			name:           "use default upload timeout",
-			flagTimeout:    0,
+			flagTimeout:    "",
 			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
 			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
 			expected:       60,
@@ -136,7 +136,7 @@ func TestGetTimeout(t *testing.T) {
 		},
 		{
 			name:           "use default download timeout",
-			flagTimeout:    0,
+			flagTimeout:    "",
 			envName:        "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
 			defaultTimeout: DOWNLOAD_HTTP_TIMEOUT,
 			expected:       300,
@@ -144,7 +144,7 @@ func TestGetTimeout(t *testing.T) {
 		},
 		{
 			name:           "use default remove timeout",
-			flagTimeout:    0,
+			flagTimeout:    "",
 			envName:        "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT",
 			defaultTimeout: REMOVE_HTTP_TIMEOUT,
 			expected:       300,

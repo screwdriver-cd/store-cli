@@ -225,17 +225,21 @@ func remove(storeType, scope, key string, timeout int) error {
 	}
 }
 
-func getTimeout(flagTimeout int, envValue string, defaultTimeout int) (int, error) {
-	if flagTimeout != 0 {
-		return flagTimeout, nil
+func getTimeout(flagTimeout string, envValue string, defaultTimeout int) (int, error) {
+
+	if flagTimeout != "" {
+		flagTimeoutInt, err := strconv.Atoi(flagTimeout)
+		return flagTimeoutInt, err
 	}
 
-	envTimeout, err := strconv.Atoi(os.Getenv(envValue))
-	if err != nil || envTimeout == 0 {
+	envValtmp := os.Getenv(envValue)
+	if envValtmp == "" {
 		return defaultTimeout, nil
 	}
 
-	return envTimeout, nil
+	envTimeout, err := strconv.Atoi(envValtmp)
+
+	return envTimeout, err
 }
 
 func main() {
@@ -260,10 +264,10 @@ func main() {
 			Usage: "Type of the command. For example: cache, artifacts, steps",
 			Value: "stable",
 		},
-		cli.IntFlag{
+		cli.StringFlag{
 			Name:  "timeout",
 			Usage: "Specifies the timeout in seconds.",
-			Value: 0,
+			Value: "",
 		},
 	}
 
@@ -277,7 +281,7 @@ func main() {
 				}
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
-				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT", DOWNLOAD_HTTP_TIMEOUT)
+				timeout, err := getTimeout(c.String("timeout"), "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT", DOWNLOAD_HTTP_TIMEOUT)
 				if err != nil {
 					failureExit(err)
 				}
@@ -300,7 +304,7 @@ func main() {
 				}
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
-				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT", UPLOAD_HTTP_TIMEOUT)
+				timeout, err := getTimeout(c.String("timeout"), "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT", UPLOAD_HTTP_TIMEOUT)
 				key := c.Args().Get(0)
 				err = set(storeType, scope, key, timeout)
 				if err != nil {
@@ -320,7 +324,7 @@ func main() {
 				}
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
-				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT", REMOVE_HTTP_TIMEOUT)
+				timeout, err := getTimeout(c.String("timeout"), "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT", REMOVE_HTTP_TIMEOUT)
 				key := c.Args().Get(0)
 				err = remove(storeType, scope, key, timeout)
 				if err != nil {
