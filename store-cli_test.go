@@ -109,6 +109,7 @@ func TestGetTimeout(t *testing.T) {
 		defaultTimeout int
 		expected       int
 		envValue       string
+		shouldError    bool
 	}{
 		{
 			name:           "use flag timeout",
@@ -117,6 +118,7 @@ func TestGetTimeout(t *testing.T) {
 			defaultTimeout: 60,
 			expected:       50,
 			envValue:       "",
+			shouldError:    false,
 		},
 		{
 			name:           "use environment timeout",
@@ -125,6 +127,7 @@ func TestGetTimeout(t *testing.T) {
 			defaultTimeout: 60,
 			expected:       70,
 			envValue:       "70",
+			shouldError:    false,
 		},
 		{
 			name:           "use default upload timeout",
@@ -133,6 +136,7 @@ func TestGetTimeout(t *testing.T) {
 			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
 			expected:       60,
 			envValue:       "",
+			shouldError:    false,
 		},
 		{
 			name:           "use default download timeout",
@@ -141,6 +145,7 @@ func TestGetTimeout(t *testing.T) {
 			defaultTimeout: DOWNLOAD_HTTP_TIMEOUT,
 			expected:       300,
 			envValue:       "",
+			shouldError:    false,
 		},
 		{
 			name:           "use default remove timeout",
@@ -149,6 +154,43 @@ func TestGetTimeout(t *testing.T) {
 			defaultTimeout: REMOVE_HTTP_TIMEOUT,
 			expected:       300,
 			envValue:       "",
+			shouldError:    false,
+		},
+		{
+			name:           "set flagTimeout to zero",
+			flagTimeout:    "0",
+			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
+			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
+			expected:       0,
+			envValue:       "",
+			shouldError:    false,
+		},
+		{
+			name:           "set envValue to zero",
+			flagTimeout:    "",
+			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
+			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
+			expected:       0,
+			envValue:       "0",
+			shouldError:    false,
+		},
+		{
+			name:           "Error case set flagTimeout to string",
+			flagTimeout:    "dummystring",
+			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
+			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
+			expected:       999,
+			envValue:       "",
+			shouldError:    true,
+		},
+		{
+			name:           "Error case set envValue to string",
+			flagTimeout:    "",
+			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
+			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
+			expected:       999,
+			envValue:       "dummystring",
+			shouldError:    true,
 		},
 	}
 
@@ -159,10 +201,20 @@ func TestGetTimeout(t *testing.T) {
 			}
 
 			got, err := getTimeout(tc.flagTimeout, tc.envName, tc.defaultTimeout)
+
 			if err != nil {
+				if tc.shouldError {
+					return
+				}
 				t.Fatalf("getTimeout() error = %v", err)
 				return
 			}
+
+			// If we reach here, the test get error.
+			if tc.shouldError {
+				t.Fatal("getTimeout() expected an error, but got nil")
+			}
+
 			if got != tc.expected {
 				t.Fatalf("getTimeout() got = %v, want %v", got, tc.expected)
 			}
