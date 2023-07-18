@@ -22,9 +22,7 @@ COMMANDS:
 GLOBAL OPTIONS:
    --scope value  Scope of command. For example: event, build, pipeline
    --type value   Type of the command. For example: cache, artifacts, steps (default: "stable")
-   --upload-timeout value    Specifies the upload timeout in seconds. (default: 60) [$SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT]
-   --download-timeout value  Specifies the download timeout in seconds. (default: 300) [$SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT]
-   --remove-timeout value    Specifies the removal timeout in seconds. (default: 300) [$SD_STORE_CLI_REMOVE_HTTP_TIMEOUT]
+   --timeout value   Specifies the timeout in seconds. (default: 60(get) or 300(set,remove))
    --help, -h     show help
    --version, -v  print the version
 
