@@ -232,14 +232,13 @@ func getTimeout(flagTimeout string, envValue string, defaultTimeout int) (int, e
 		return flagTimeoutInt, err
 	}
 
-	envValtmp := os.Getenv(envValue)
-	if envValtmp == "" {
-		return defaultTimeout, nil
+	envTimeout := os.Getenv(envValue)
+	if envTimeout != "" {
+		envTimeoutInt, err := strconv.Atoi(envTimeout)
+		return envTimeoutInt, err
 	}
 
-	envTimeout, err := strconv.Atoi(envValtmp)
-
-	return envTimeout, err
+	return defaultTimeout, nil
 }
 
 func main() {
