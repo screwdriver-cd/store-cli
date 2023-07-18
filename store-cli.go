@@ -24,6 +24,11 @@ var MAX_RETRIES = 5      // int
 var RETRY_WAIT_MIN = 100 // ms
 var RETRY_WAIT_MAX = 300 // ms
 
+// default http timeout for Upload/Download/Remove operations
+var UPLOAD_HTTP_TIMEOUT = 60    // seconds
+var DOWNLOAD_HTTP_TIMEOUT = 300 // seconds
+var REMOVE_HTTP_TIMEOUT = 300   // seconds
+
 // successExit exits process with 0
 func successExit() {
 	os.Exit(0)
@@ -272,7 +277,7 @@ func main() {
 				}
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
-				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT", 60)
+				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT", DOWNLOAD_HTTP_TIMEOUT)
 				if err != nil {
 					failureExit(err)
 				}
@@ -295,7 +300,7 @@ func main() {
 				}
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
-				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT", 300)
+				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT", UPLOAD_HTTP_TIMEOUT)
 				key := c.Args().Get(0)
 				err = set(storeType, scope, key, timeout)
 				if err != nil {
@@ -315,7 +320,7 @@ func main() {
 				}
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
-				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT", 300)
+				timeout, err := getTimeout(c.Int("timeout"), "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT", REMOVE_HTTP_TIMEOUT)
 				key := c.Args().Get(0)
 				err = remove(storeType, scope, key, timeout)
 				if err != nil {
