@@ -304,6 +304,9 @@ func main() {
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
 				timeout, err := getTimeout(c.String("timeout"), "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT", UPLOAD_HTTP_TIMEOUT)
+				if err != nil {
+					failureExit(err)
+				}
 				key := c.Args().Get(0)
 				err = set(storeType, scope, key, timeout)
 				if err != nil {
@@ -324,6 +327,9 @@ func main() {
 				scope := strings.ToLower(c.String("scope"))
 				storeType := strings.ToLower(c.String("type"))
 				timeout, err := getTimeout(c.String("timeout"), "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT", REMOVE_HTTP_TIMEOUT)
+				if err != nil {
+					failureExit(err)
+				}
 				key := c.Args().Get(0)
 				err = remove(storeType, scope, key, timeout)
 				if err != nil {
