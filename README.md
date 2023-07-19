@@ -22,7 +22,7 @@ COMMANDS:
 GLOBAL OPTIONS:
    --scope value  Scope of command. For example: event, build, pipeline
    --type value   Type of the command. For example: cache, artifacts, steps (default: "stable")
-   --timeout value   Specifies the timeout in seconds. (default: 60(get) or 300(set,remove))
+   --timeout value   Specifies the timeout in seconds for commands. (default: 60(get) or 300(set,remove))
    --help, -h     show help
    --version, -v  print the version
 
