@@ -100,3 +100,127 @@ func TestMakeURL(t *testing.T) {
 		t.Fatalf("Expected error, got nil")
 	}
 }
+
+func TestGetTimeout(t *testing.T) {
+	testCases := []struct {
+		name           string
+		flagTimeout    string
+		envName        string
+		defaultTimeout int
+		expected       int
+		envValue       string
+		shouldError    bool
+	}{
+		{
+			name:           "use flag timeout",
+			flagTimeout:    "50",
+			envName:        "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
+			defaultTimeout: 60,
+			expected:       50,
+			envValue:       "",
+			shouldError:    false,
+		},
+		{
+			name:           "use environment timeout",
+			flagTimeout:    "",
+			envName:        "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
+			defaultTimeout: 60,
+			expected:       70,
+			envValue:       "70",
+			shouldError:    false,
+		},
+		{
+			name:           "use default upload timeout",
+			flagTimeout:    "",
+			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
+			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
+			expected:       60,
+			envValue:       "",
+			shouldError:    false,
+		},
+		{
+			name:           "use default download timeout",
+			flagTimeout:    "",
+			envName:        "SD_STORE_CLI_DOWNLOAD_HTTP_TIMEOUT",
+			defaultTimeout: DOWNLOAD_HTTP_TIMEOUT,
+			expected:       300,
+			envValue:       "",
+			shouldError:    false,
+		},
+		{
+			name:           "use default remove timeout",
+			flagTimeout:    "",
+			envName:        "SD_STORE_CLI_REMOVE_HTTP_TIMEOUT",
+			defaultTimeout: REMOVE_HTTP_TIMEOUT,
+			expected:       300,
+			envValue:       "",
+			shouldError:    false,
+		},
+		{
+			name:           "set flagTimeout to zero",
+			flagTimeout:    "0",
+			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
+			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
+			expected:       0,
+			envValue:       "",
+			shouldError:    false,
+		},
+		{
+			name:           "set envValue to zero",
+			flagTimeout:    "",
+			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
+			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
+			expected:       0,
+			envValue:       "0",
+			shouldError:    false,
+		},
+		{
+			name:           "Error case set flagTimeout to string",
+			flagTimeout:    "dummystring",
+			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
+			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
+			expected:       0,
+			envValue:       "",
+			shouldError:    true,
+		},
+		{
+			name:           "Error case set envValue to string",
+			flagTimeout:    "",
+			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
+			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
+			expected:       0,
+			envValue:       "dummystring",
+			shouldError:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.envValue != "" {
+				os.Setenv(tc.envName, tc.envValue)
+			}
+
+			got, err := getTimeout(tc.flagTimeout, tc.envName, tc.defaultTimeout)
+
+			if err != nil {
+				if tc.shouldError {
+					return
+				}
+				t.Fatalf("getTimeout() error = %v", err)
+				return
+			}
+
+			// If we reach here, the test get error.
+			if tc.shouldError {
+				t.Fatal("getTimeout() expected an error, but got nil")
+			}
+
+			if got != tc.expected {
+				t.Fatalf("getTimeout() got = %v, want %v", got, tc.expected)
+			}
+
+			// Clear environment value for the next test case.
+			os.Unsetenv(tc.envName)
+		})
+	}
+}

@@ -22,6 +22,7 @@ COMMANDS:
 GLOBAL OPTIONS:
    --scope value  Scope of command. For example: event, build, pipeline
    --type value   Type of the command. For example: cache, artifacts, steps (default: "stable")
+   --timeout value   Specifies the timeout in seconds for commands. (default: 60(get) or 300(set,remove))
    --help, -h     show help
    --version, -v  print the version
 
@@ -43,8 +44,8 @@ For example, if you want to cache the `node_modules` folder within the `event` s
 
 ## Dependency
 
-store-cli has dependency on ZStandard (https://github.com/facebook/zstd)
+store-cli has dependency on ZStandard v1.4.8 (https://github.com/facebook/zstd)
 
 To test locally in download binaries from screwdrivercd bintray and set path
-    <li> mac   => download zstd-cli-macosx binary from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz 
-    <li> linux => download zstd-cli-linux binary from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz
+    <li> mac   => download zstd-cli-macosx binary from https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-macosx.tar.gz
+    <li> linux => download zstd-cli-linux binary from https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux.tar.gz

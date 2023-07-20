@@ -103,8 +103,8 @@ func acquireLock(path string, read bool) error {
 }
 
 // ZStandard from https://github.com/facebook/zstd
-// To test in mac - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-macosx.tar.gz and set path
-// To test in linux - download from https://bintray.com/screwdrivercd/screwdrivercd/download_file?file_path=zstd-cli-1.4.8-linux.tar.gz and set path
+// To test in mac - download from https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-macosx.tar.gz and set path
+// To test in linux - download from https://github.com/screwdriver-cd/sd-packages/releases/download/v0.0.30/zstd-cli-linux.tar.gz and set path
 func getZstdBinary() string {
 	switch runtime.GOOS {
 	case "darwin":
