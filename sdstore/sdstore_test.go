@@ -176,6 +176,7 @@ func TestUpload(t *testing.T) {
 			if r.Header.Get("Expect") != "100-continue" {
 				t.Errorf("Expected 'Expect: 100-continue' header, but got %v", r.Header.Get("Expect"))
 			}
+
 		} else if r.Method == "GET" {
 		}
 	})
@@ -240,6 +241,10 @@ func TestUploadZipWithChange(t *testing.T) {
 			fsize := stat.Size()
 			if r.ContentLength != fsize {
 				t.Errorf("Wrong Content-Length sent to uploader. Got %d, want %d", r.ContentLength, fsize)
+			}
+
+			if r.Header.Get("Expect") != "100-continue" {
+				t.Errorf("Expected 'Expect: 100-continue' header, but got %v", r.Header.Get("Expect"))
 			}
 
 			err = os.Remove(zipfile)
