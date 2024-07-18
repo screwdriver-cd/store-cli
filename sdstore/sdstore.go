@@ -42,6 +42,11 @@ func NewStore(token string, maxRetries int, httpTimeout int, retryWaitMin int, r
 	retryClient.HTTPClient.Timeout = time.Duration(httpTimeout) * time.Second
 	retryClient.CheckRetry = retryablehttp.DefaultRetryPolicy
 
+	customTransport := http.DefaultTransport.(*http.Transport).Clone()
+	customTransport.ExpectContinueTimeout = 5 * time.Second
+
+	retryClient.HTTPClient.Transport = customTransport
+
 	return &sdStore{
 		token:  token,
 		client: retryClient,
@@ -359,6 +364,7 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error 
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
 	req.Header.Set("Content-Type", bodyType)
+	req.Header.Set("Expect", "100-continue")
 	if fi, err := os.Stat(filePath); err == nil {
 		req.ContentLength = fi.Size()
 	}
