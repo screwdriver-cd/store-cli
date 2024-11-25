@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +33,22 @@ type sdStore struct {
 	client *retryablehttp.Client
 }
 
+func getExpectContinueTimeout() int {
+	envValue := os.Getenv("EXPECT_CONTINUE_TIMEOUT")
+
+	if envValue == "" {
+		// default 1 sec
+		return 1
+	}
+
+	expectcontinuetimeout, err := strconv.Atoi(envValue)
+	if err != nil || expectcontinuetimeout < 0 {
+		return 1
+	}
+
+	return expectcontinuetimeout
+}
+
 // NewStore returns an SDStore instance.
 func NewStore(token string, maxRetries int, httpTimeout int, retryWaitMin int, retryWaitMax int) SDStore {
 	retryClient := retryablehttp.NewClient()
@@ -43,7 +60,9 @@ func NewStore(token string, maxRetries int, httpTimeout int, retryWaitMin int, r
 	retryClient.CheckRetry = retryablehttp.DefaultRetryPolicy
 
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
-	customTransport.ExpectContinueTimeout = 5 * time.Second
+
+	expectContinueTimeout := time.Duration(getExpectContinueTimeout())
+	customTransport.ExpectContinueTimeout = expectContinueTimeout * time.Second
 
 	retryClient.HTTPClient.Transport = customTransport
 
@@ -364,9 +383,11 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string, useExp
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
 	req.Header.Set("Content-Type", bodyType)
+
 	if useExpectHeader {
 		req.Header.Set("Expect", "100-continue")
 	}
+
 	if fi, err := os.Stat(filePath); err == nil {
 		req.ContentLength = fi.Size()
 	}

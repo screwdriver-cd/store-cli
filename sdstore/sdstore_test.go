@@ -583,3 +583,30 @@ func TestZipAndUnzipWithSymlink(t *testing.T) {
 	os.RemoveAll("../data/test")
 	os.RemoveAll("../data/testsymlink.zip")
 }
+
+func TestGetExpectContinueTimeout(t *testing.T) {
+	tests := []struct {
+		envValue string
+		expected int
+	}{
+		{"", 1},
+		{"5", 5},
+		{"0", 0},
+		{"-1", 1},
+		{"invalid", 1},
+	}
+
+	for _, tt := range tests {
+		t.Run("env:"+tt.envValue, func(t *testing.T) {
+			os.Setenv("EXPECT_CONTINUE_TIMEOUT", tt.envValue)
+
+			result := getExpectContinueTimeout()
+
+			if result != tt.expected {
+				t.Errorf("expected %d, got %d", tt.expected, result)
+			}
+		})
+	}
+
+	os.Unsetenv("EXPECT_CONTINUE_TIMEOUT")
+}
