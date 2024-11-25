@@ -169,14 +169,17 @@ func set(storeType, scope, filePath string, timeout int) error {
 		store := sdstore.NewStore(sdToken, MAX_RETRIES, timeout, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
 
 		var toCompress bool
+		var useExpectHeader bool
 
 		if storeType == "cache" {
 			toCompress = true
+			useExpectHeader = true
 		} else {
 			toCompress = false
+			useExpectHeader = false
 		}
 
-		return store.Upload(fullURL, filePath, toCompress)
+		return store.Upload(fullURL, filePath, toCompress, useExpectHeader)
 	}
 
 }
