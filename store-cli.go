@@ -42,6 +42,11 @@ func failureExit(err error) {
 	os.Exit(1)
 }
 
+func IsEnableExpectHeader() bool {
+	var getEnableExpectHeader = os.Getenv("SD_ENABLE_EXPECT_HEADER")
+	return getEnableExpectHeader == "true"
+}
+
 // finalRecover makes one last attempt to recover from a panic.
 // This should only happen if the previous recovery caused a panic.
 func finalRecover() {
@@ -169,14 +174,15 @@ func set(storeType, scope, filePath string, timeout int) error {
 		store := sdstore.NewStore(sdToken, MAX_RETRIES, timeout, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
 
 		var toCompress bool
-		var useExpectHeader bool
+		var useExpectHeader bool = false
 
 		if storeType == "cache" {
 			toCompress = true
-			useExpectHeader = true
+			if IsEnableExpectHeader() {
+				useExpectHeader = true
+			}
 		} else {
 			toCompress = false
-			useExpectHeader = false
 		}
 
 		return store.Upload(fullURL, filePath, toCompress, useExpectHeader)
