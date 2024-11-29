@@ -598,7 +598,7 @@ func TestGetExpectContinueTimeout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("env:"+tt.envValue, func(t *testing.T) {
-			os.Setenv("EXPECT_CONTINUE_TIMEOUT", tt.envValue)
+			os.Setenv("CD_EXPECT_CONTINUE_TIMEOUT", tt.envValue)
 
 			result := getExpectContinueTimeout()
 
@@ -608,7 +608,7 @@ func TestGetExpectContinueTimeout(t *testing.T) {
 		})
 	}
 
-	os.Unsetenv("EXPECT_CONTINUE_TIMEOUT")
+	os.Unsetenv("CD_EXPECT_CONTINUE_TIMEOUT")
 }
 
 func TestNewStore_ForceAttemptHTTP2(t *testing.T) {

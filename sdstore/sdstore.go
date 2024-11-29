@@ -34,7 +34,7 @@ type sdStore struct {
 }
 
 func getExpectContinueTimeout() int {
-	envValue := os.Getenv("EXPECT_CONTINUE_TIMEOUT")
+	envValue := os.Getenv("CD_EXPECT_CONTINUE_TIMEOUT")
 
 	if envValue == "" {
 		// default 1 sec
