@@ -63,7 +63,6 @@ func NewStore(token string, maxRetries int, httpTimeout int, retryWaitMin int, r
 
 	expectContinueTimeout := time.Duration(getExpectContinueTimeout())
 	customTransport.ExpectContinueTimeout = expectContinueTimeout * time.Second
-	customTransport.ForceAttemptHTTP2 = false
 
 	retryClient.HTTPClient.Transport = customTransport
 

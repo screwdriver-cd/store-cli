@@ -610,27 +610,3 @@ func TestGetExpectContinueTimeout(t *testing.T) {
 
 	os.Unsetenv("CD_EXPECT_CONTINUE_TIMEOUT")
 }
-
-func TestNewStore_ForceAttemptHTTP2(t *testing.T) {
-	token := "test-token"
-	maxRetries := 3
-	httpTimeout := 10
-	retryWaitMin := 100
-	retryWaitMax := 200
-
-	store := NewStore(token, maxRetries, httpTimeout, retryWaitMin, retryWaitMax)
-
-	retryClient, ok := store.(*sdStore)
-	if !ok {
-		t.Errorf("Unable to get *sdStore")
-	}
-
-	transport, ok := retryClient.client.HTTPClient.Transport.(*http.Transport)
-	if !ok {
-		t.Errorf("Unable to get *http.Transport")
-	}
-
-	if transport.ForceAttemptHTTP2 != false {
-		t.Errorf("expected ForceAttemptHTTP2 to be false, got %v", transport.ForceAttemptHTTP2)
-	}
-}
