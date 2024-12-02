@@ -598,7 +598,7 @@ func TestGetExpectContinueTimeout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("env:"+tt.envValue, func(t *testing.T) {
-			os.Setenv("CD_EXPECT_CONTINUE_TIMEOUT", tt.envValue)
+			os.Setenv("SD_EXPECT_CONTINUE_TIMEOUT", tt.envValue)
 
 			result := getExpectContinueTimeout()
 
@@ -608,5 +608,5 @@ func TestGetExpectContinueTimeout(t *testing.T) {
 		})
 	}
 
-	os.Unsetenv("CD_EXPECT_CONTINUE_TIMEOUT")
+	os.Unsetenv("SD_EXPECT_CONTINUE_TIMEOUT")
 }
