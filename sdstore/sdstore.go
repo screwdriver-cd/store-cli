@@ -33,6 +33,8 @@ type sdStore struct {
 	client *retryablehttp.Client
 }
 
+// getExpectContinueTimeout checks the CD_EXPECT_CONTINUE_TIMEOUT environment variable.
+// It returns the timeout. If the variable is not set, invalid, or negative, it defaults to 1 sec.
 func getExpectContinueTimeout() int {
 	envValue := os.Getenv("CD_EXPECT_CONTINUE_TIMEOUT")
 

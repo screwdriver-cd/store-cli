@@ -42,6 +42,8 @@ func failureExit(err error) {
 	os.Exit(1)
 }
 
+// IsEnableExpectHeader checks the SD_ENABLE_EXPECT_HEADER environment variable.
+// It returns true if the variable is set to "true", otherwise it returns false.
 func IsEnableExpectHeader() bool {
 	var getEnableExpectHeader = os.Getenv("SD_ENABLE_EXPECT_HEADER")
 	return getEnableExpectHeader == "true"
