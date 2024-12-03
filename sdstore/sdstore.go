@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,7 +23,7 @@ var UTCLoc, _ = time.LoadLocation("UTC")
 
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
-	Upload(u *url.URL, filePath string, toCompress bool) error
+	Upload(u *url.URL, filePath string, toCompress bool, useExpectHeader bool) error
 	Download(url *url.URL, toExtract bool) error
 	Remove(url *url.URL) error
 }
@@ -30,6 +31,24 @@ type SDStore interface {
 type sdStore struct {
 	token  string
 	client *retryablehttp.Client
+}
+
+// getExpectContinueTimeout checks the SD_EXPECT_CONTINUE_TIMEOUT environment variable.
+// It returns the timeout. If the variable is not set, invalid, or negative, it defaults to 1 sec.
+func getExpectContinueTimeout() int {
+	envValue := os.Getenv("SD_EXPECT_CONTINUE_TIMEOUT")
+
+	if envValue == "" {
+		// default 1 sec
+		return 1
+	}
+
+	expectContinueTimeout, err := strconv.Atoi(envValue)
+	if err != nil || expectContinueTimeout < 0 {
+		return 1
+	}
+
+	return expectContinueTimeout
 }
 
 // NewStore returns an SDStore instance.
@@ -43,7 +62,9 @@ func NewStore(token string, maxRetries int, httpTimeout int, retryWaitMin int, r
 	retryClient.CheckRetry = retryablehttp.DefaultRetryPolicy
 
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
-	customTransport.ExpectContinueTimeout = 5 * time.Second
+
+	expectContinueTimeout := time.Duration(getExpectContinueTimeout())
+	customTransport.ExpectContinueTimeout = expectContinueTimeout * time.Second
 
 	retryClient.HTTPClient.Transport = customTransport
 
@@ -206,9 +227,9 @@ func (s *sdStore) GenerateAndCheckMd5Json(url *url.URL, path string) (string, er
 
 // Uploads sends a file to a path within the SD Store. The path is relative to
 // the build/event path within the SD Store, e.g. http://store.screwdriver.cd/builds/abc/<storePath>
-func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
+func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool, useExpectHeader bool) error {
 	if !toCompress {
-		err := s.putFile(u, "text/plain", filePath)
+		err := s.putFile(u, "text/plain", filePath, useExpectHeader)
 		if err != nil {
 			log.Printf("failed to upload files %v to store (upload size = %s)", filePath, fileSize(filePath))
 			return err
@@ -232,7 +253,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 		return err
 	}
 
-	err = s.putFile(encodedURL, "application/json", md5Json)
+	err = s.putFile(encodedURL, "application/json", md5Json, useExpectHeader)
 	if err != nil {
 		log.Printf("failed to upload md5 json %s", md5Json)
 		return err
@@ -267,7 +288,7 @@ func (s *sdStore) Upload(u *url.URL, filePath string, toCompress bool) error {
 	if err != nil {
 		return err
 	}
-	err = s.putFile(encodedURL, "text/plain", zipPath)
+	err = s.putFile(encodedURL, "text/plain", zipPath, useExpectHeader)
 	if err != nil {
 		log.Printf("failed to upload file %s to store (upload size = %s)", zipPath, fileSize(zipPath))
 		return err
@@ -350,7 +371,7 @@ func (s *sdStore) request(url string, requestType string) ([]byte, error) {
 }
 
 // putFile writes a file at filePath to a url with a PUT request. It streams the data from disk to save memory
-func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error {
+func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string, useExpectHeader bool) error {
 	requestType := "PUT"
 	req, err := retryablehttp.NewRequest(requestType, url.String(), func() (io.Reader, error) {
 		return os.Open(filePath)
@@ -364,7 +385,11 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string) error 
 
 	req.Header.Set("Authorization", tokenHeader(s.token))
 	req.Header.Set("Content-Type", bodyType)
-	req.Header.Set("Expect", "100-continue")
+
+	if useExpectHeader {
+		req.Header.Set("Expect", "100-continue")
+	}
+
 	if fi, err := os.Stat(filePath); err == nil {
 		req.ContentLength = fi.Size()
 	}

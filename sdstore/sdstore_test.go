@@ -181,7 +181,7 @@ func TestUpload(t *testing.T) {
 		}
 	})
 	uploader.client.HTTPClient = http
-	uploader.Upload(u, testFile().Name(), false)
+	uploader.Upload(u, testFile().Name(), false, true)
 
 	if !called {
 		t.Fatalf("The HTTP client was never used.")
@@ -270,7 +270,7 @@ func TestUploadZipWithChange(t *testing.T) {
 	})
 
 	uploader.client.HTTPClient = http
-	uploader.Upload(u, testFile().Name(), true)
+	uploader.Upload(u, testFile().Name(), true, true)
 
 	if !getMd5 {
 		t.Errorf("Did not get md5 file")
@@ -314,7 +314,7 @@ func TestUploadZipNoChange(t *testing.T) {
 	})
 
 	uploader.client.HTTPClient = http
-	uploader.Upload(u, testFile2().Name(), true)
+	uploader.Upload(u, testFile2().Name(), true, true)
 
 	if called != 1 { // 1 GET
 		t.Fatalf("The HTTP client was not called as expected")
@@ -330,7 +330,7 @@ func TestUploadRetry(t *testing.T) {
 		atomic.AddInt32(&callCount, 1)
 	})
 	uploader.client.HTTPClient = http
-	err := uploader.Upload(u, testFile().Name(), false)
+	err := uploader.Upload(u, testFile().Name(), false, true)
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
 	}
@@ -348,7 +348,7 @@ func TestUploadZipRetry(t *testing.T) {
 		atomic.AddInt32(&callCount, 1)
 	})
 	uploader.client.HTTPClient = http
-	err := uploader.Upload(u, testFile().Name(), true)
+	err := uploader.Upload(u, testFile().Name(), true, true)
 	if err == nil {
 		t.Error("Expected error from uploader.Upload(), got nil")
 	}
@@ -356,6 +356,32 @@ func TestUploadZipRetry(t *testing.T) {
 		t.Errorf("Expected 6 retries, got %d", callCount)
 	}
 	os.Remove("emitterdata_md5.json")
+}
+
+func TestUploadNotCache(t *testing.T) {
+	u, _ := url.Parse("http://fakestore.example.com/builds/1234-test")
+	uploader := newStore(2)
+	called := false
+
+	http := makeFakeHTTPClient(t, 200, "OK", func(r *http.Request) {
+		if r.Method == "PUT" {
+			called = true
+			got := bytes.NewBuffer(nil)
+			io.Copy(got, r.Body)
+			r.Body.Close()
+
+			if r.Header.Get("Expect") != "" {
+				t.Errorf("Unexpected 'Expect header' found")
+			}
+
+		}
+	})
+	uploader.client.HTTPClient = http
+	uploader.Upload(u, testFile().Name(), false, false)
+
+	if !called {
+		t.Fatalf("The HTTP client was never used.")
+	}
 }
 
 func TestDownloadZip(t *testing.T) {
@@ -556,4 +582,31 @@ func TestZipAndUnzipWithSymlink(t *testing.T) {
 
 	os.RemoveAll("../data/test")
 	os.RemoveAll("../data/testsymlink.zip")
+}
+
+func TestGetExpectContinueTimeout(t *testing.T) {
+	tests := []struct {
+		envValue string
+		expected int
+	}{
+		{"", 1},
+		{"5", 5},
+		{"0", 0},
+		{"-1", 1},
+		{"invalid", 1},
+	}
+
+	for _, tt := range tests {
+		t.Run("env:"+tt.envValue, func(t *testing.T) {
+			os.Setenv("SD_EXPECT_CONTINUE_TIMEOUT", tt.envValue)
+
+			result := getExpectContinueTimeout()
+
+			if result != tt.expected {
+				t.Errorf("expected %d, got %d", tt.expected, result)
+			}
+		})
+	}
+
+	os.Unsetenv("SD_EXPECT_CONTINUE_TIMEOUT")
 }

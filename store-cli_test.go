@@ -224,3 +224,30 @@ func TestGetTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestIsEnableExpectHeader(t *testing.T) {
+	tests := []struct {
+		envValue string
+		expected bool
+	}{
+		{"true", true},
+		{"false", false},
+		{"1", false},
+		{"invalid", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run("env:"+tt.envValue, func(t *testing.T) {
+			os.Setenv("SD_ENABLE_EXPECT_HEADER", tt.envValue)
+
+			result := IsEnableExpectHeader()
+
+			if result != tt.expected {
+				t.Errorf("expected %t, got %t", tt.expected, result)
+			}
+		})
+	}
+
+	os.Unsetenv("SD_ENABLE_EXPECT_HEADER")
+}
