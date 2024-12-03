@@ -43,12 +43,12 @@ func getExpectContinueTimeout() int {
 		return 1
 	}
 
-	expectcontinuetimeout, err := strconv.Atoi(envValue)
-	if err != nil || expectcontinuetimeout < 0 {
+	expectContinueTimeout, err := strconv.Atoi(envValue)
+	if err != nil || expectContinueTimeout < 0 {
 		return 1
 	}
 
-	return expectcontinuetimeout
+	return expectContinueTimeout
 }
 
 // NewStore returns an SDStore instance.
