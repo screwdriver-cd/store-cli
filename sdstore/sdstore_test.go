@@ -259,7 +259,7 @@ func TestUploadZipWithChange(t *testing.T) {
 		} else if r.Method == "PUT" && contentType == "application/json" {
 			putMd5 = true
 			md5Json, _ := ioutil.ReadFile("emitterdata_md5.json")
-			wantmd5 := fmt.Sprintf("{\"" + file + "\":\"62a256001a246e77fd1941ca007b50e1\"}")
+			wantmd5 := fmt.Sprintf("%s", "{\"" + file + "\":\"62a256001a246e77fd1941ca007b50e1\"}")
 
 			if string(md5Json) != wantmd5 {
 				t.Errorf("Expected content of md5 json to be %s, got %s", md5Json, wantmd5)
