@@ -51,5 +51,5 @@ func Warn(err ...interface{}) {
 
 func Error(err error) error {
 	zapLogger.Error(fmt.Sprintf("%v", err))
-	return fmt.Errorf(fmt.Sprintf("%v", err))
+	return fmt.Errorf("%s", fmt.Sprintf("%v", err))
 }
