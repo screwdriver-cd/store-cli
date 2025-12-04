@@ -13,7 +13,7 @@ jobs:
             - gofmt: ret=$(find . -name '*.go' | xargs gofmt -d) && echo "$ret" && test -z "$ret"
             - test-setup: go install gotest.tools/gotestsum@latest
             - test: gotestsum --format testname --jsonfile ${SD_ARTIFACTS_DIR}/report.json -- -coverprofile=${SD_ARTIFACTS_DIR}/coverage.out ./...
-            - build: go build -a -o store-cli
+            - build: CGO_ENABLED=0 go build -a -o store-cli
             - test-release: "curl -sL https://git.io/goreleaser | bash -s -- --snapshot"
 
     deploy:
