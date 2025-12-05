@@ -176,16 +176,14 @@ func set(storeType, scope, filePath string, timeout int) error {
 		store := sdstore.NewStore(sdToken, MAX_RETRIES, timeout, RETRY_WAIT_MIN, RETRY_WAIT_MAX)
 
 		var toCompress bool
-		var useExpectHeader bool = false
-
 		if storeType == "cache" {
 			toCompress = true
-			if IsEnableExpectHeader() {
-				useExpectHeader = true
-			}
 		} else {
 			toCompress = false
 		}
+
+		// add Expect header if SD_ENABLE_EXPECT_HEADER=="true"
+		useExpectHeader := IsEnableExpectHeader()
 
 		return store.Upload(fullURL, filePath, toCompress, useExpectHeader)
 	}
@@ -257,10 +255,9 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "store-cli"
-	app.Usage = "CLI to communicate with Screwdriver Store"
+	app.Usage = "CLI to get, set or remove items in the Screwdriver store"
 	app.UsageText = "[options]"
 	app.Copyright = "(c) 2018 Yahoo Inc."
-	app.Usage = "get, set or remove items in the Screwdriver store"
 	app.Version = VERSION
 
 	app.Flags = []cli.Flag{
