@@ -25,7 +25,7 @@ var RETRY_WAIT_MIN = 100 // ms
 var RETRY_WAIT_MAX = 300 // ms
 
 // default http timeout for Upload/Download/Remove operations
-var UPLOAD_HTTP_TIMEOUT = 60    // seconds
+var UPLOAD_HTTP_TIMEOUT = 150   // seconds
 var DOWNLOAD_HTTP_TIMEOUT = 300 // seconds
 var REMOVE_HTTP_TIMEOUT = 300   // seconds
 

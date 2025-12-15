@@ -134,7 +134,7 @@ func TestGetTimeout(t *testing.T) {
 			flagTimeout:    "",
 			envName:        "SD_STORE_CLI_UPLOAD_HTTP_TIMEOUT",
 			defaultTimeout: UPLOAD_HTTP_TIMEOUT,
-			expected:       60,
+			expected:       150,
 			envValue:       "",
 			shouldError:    false,
 		},
