@@ -40,3 +40,4 @@ data/cache/
 
 # IDE
 .idea/
+.vscode/
