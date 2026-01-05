@@ -35,31 +35,6 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.2f GB", float64(bytes)/(1024*1024*1024))
 }
 
-// estimateTransferTime estimates transfer time based on size and assumed speed
-// Default speeds: 10 MB/s for download, 5 MB/s for upload
-func estimateTransferTime(bytes int64, isUpload bool) string {
-	var speedMBps float64 = 10.0 // download speed
-	if isUpload {
-		speedMBps = 5.0 // upload speed
-	}
-
-	if bytes == 0 {
-		return "< 1s"
-	}
-
-	sizeMB := float64(bytes) / (1024 * 1024)
-	seconds := sizeMB / speedMBps
-
-	if seconds < 1 {
-		return "< 1s"
-	}
-	if seconds < 60 {
-		return fmt.Sprintf("~%.0fs", seconds)
-	}
-	minutes := seconds / 60
-	return fmt.Sprintf("~%.1fm", minutes)
-}
-
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
 	Upload(u *url.URL, filePath string, toCompress bool, useExpectHeader bool) error
@@ -391,7 +366,7 @@ func (s *sdStore) request(url string, requestType string) ([]byte, error) {
 	// For GET requests, display file size and estimated download time
 	if requestType == "GET" && res.StatusCode/100 == 2 {
 		if contentLength := res.ContentLength; contentLength > 0 {
-			log.Printf("Downloading: %s (estimated time: %s)", formatBytes(contentLength), estimateTransferTime(contentLength, false))
+			log.Printf("Downloading: %s ", formatBytes(contentLength))
 		}
 	}
 
@@ -448,7 +423,7 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string, useExp
 		req.ContentLength = fi.Size()
 		fileSize = fi.Size()
 		// Display file size and estimated upload time
-		log.Printf("Uploading: %s (estimated time: %s)", formatBytes(fileSize), estimateTransferTime(fileSize, true))
+		log.Printf("Uploading: %s", formatBytes(fileSize))
 	}
 
 	startTime := time.Now()
