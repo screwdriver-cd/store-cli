@@ -130,9 +130,6 @@ func makeURL(storeType, scope, key string) (*url.URL, error) {
 }
 
 func get(storeType, scope, key string, timeout int) error {
-	if skipCache(storeType, scope, "get") {
-		return nil
-	}
 
 	if strings.ToLower(storeType) == "cache" && CacheStrategy == "disk" {
 		return sdstore.Cache2Disk("get", scope, key, CacheMaxSizeInMB)

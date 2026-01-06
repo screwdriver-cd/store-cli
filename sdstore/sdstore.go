@@ -21,6 +21,20 @@ import (
 
 var UTCLoc, _ = time.LoadLocation("UTC")
 
+// formatBytes converts bytes to human-readable format
+func formatBytes(bytes int64) string {
+	if bytes < 1024 {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	if bytes < 1024*1024 {
+		return fmt.Sprintf("%.2f KB", float64(bytes)/1024)
+	}
+	if bytes < 1024*1024*1024 {
+		return fmt.Sprintf("%.2f MB", float64(bytes)/(1024*1024))
+	}
+	return fmt.Sprintf("%.2f GB", float64(bytes)/(1024*1024*1024))
+}
+
 // SDStore is able to upload, download, and remove the contents of a Reader to the SD Store
 type SDStore interface {
 	Upload(u *url.URL, filePath string, toCompress bool, useExpectHeader bool) error
@@ -349,10 +363,24 @@ func (s *sdStore) request(url string, requestType string) ([]byte, error) {
 		return nil, fmt.Errorf("WARNING: received error from %s(%s): %v ", requestType, url, err)
 	}
 
+	// For GET requests, display file size and estimated download time
+	if requestType == "GET" && res.StatusCode/100 == 2 {
+		if contentLength := res.ContentLength; contentLength > 0 {
+			log.Printf("Downloading: %s ", formatBytes(contentLength))
+		}
+	}
+
+	startTime := time.Now()
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Printf("reading response Body from Store API: %v", err)
 		return nil, fmt.Errorf("reading response Body from Store API: %v", err)
+	}
+
+	// Log actual download time for GET requests
+	if requestType == "GET" && res.StatusCode/100 == 2 && res.ContentLength > 0 {
+		elapsed := time.Since(startTime)
+		log.Printf("Download completed in %.2fs", elapsed.Seconds())
 	}
 
 	if res.StatusCode/100 != 2 {
@@ -390,10 +418,15 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string, useExp
 		req.Header.Set("Expect", "100-continue")
 	}
 
+	var fileSize int64
 	if fi, err := os.Stat(filePath); err == nil {
 		req.ContentLength = fi.Size()
+		fileSize = fi.Size()
+		// Display file size and estimated upload time
+		log.Printf("Uploading: %s", formatBytes(fileSize))
 	}
 
+	startTime := time.Now()
 	res, err := s.client.Do(req)
 	if res != nil {
 		defer res.Body.Close()
@@ -420,6 +453,12 @@ func (s *sdStore) putFile(url *url.URL, bodyType string, filePath string, useExp
 
 		log.Printf("WARNING: received response %d from %s ", res.StatusCode, url.String())
 		return fmt.Errorf("WARNING: received response %d from %s ", res.StatusCode, url.String())
+	}
+
+	// Log actual upload time
+	if fileSize > 0 {
+		elapsed := time.Since(startTime)
+		log.Printf("Upload completed in %.2fs", elapsed.Seconds())
 	}
 
 	return nil
