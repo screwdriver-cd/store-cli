@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"log"
 	"net/url"
@@ -13,6 +14,12 @@ import (
 	"github.com/screwdriver-cd/store-cli/sdstore"
 	"github.com/urfave/cli"
 )
+
+//go:embed LICENSE
+var licenseText string
+
+//go:embed THIRD-PARTY-NOTICES.txt
+var thirdPartyNotices string
 
 // VERSION gets set by the build script via the LDFLAGS
 var VERSION string
@@ -344,6 +351,14 @@ func main() {
 				return nil
 			},
 			Flags: app.Flags,
+		},
+		{
+			Name:  "licenses",
+			Usage: "Show the project license and third-party notices",
+			Action: func(c *cli.Context) error {
+				_, err := fmt.Fprint(c.App.Writer, licenseText+"\n"+thirdPartyNotices)
+				return err
+			},
 		},
 	}
 

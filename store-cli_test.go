@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -250,4 +253,46 @@ func TestIsEnableExpectHeader(t *testing.T) {
 	}
 
 	os.Unsetenv("SD_ENABLE_EXPECT_HEADER")
+}
+
+func TestLicensesCommand(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "store-cli")
+	build := exec.Command(filepath.Join(runtime.GOROOT(), "bin", "go"), "build", "-ldflags", "-s -w", "-o", binary, ".")
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build store-cli: %v\n%s", err, output)
+	}
+
+	projectLicense, err := os.ReadFile("LICENSE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	copiedCodeNotices, err := os.ReadFile("THIRD-PARTY-NOTICES.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Run from an empty directory without environment variables to verify that
+	// license output does not depend on external documents or configuration.
+	command := exec.Command(binary, "licenses")
+	command.Dir = t.TempDir()
+	command.Env = []string{}
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("store-cli licenses: %v\n%s", err, output)
+	}
+	want := string(projectLicense) + "\n" + string(copiedCodeNotices)
+	if string(output) != want {
+		t.Fatal("licenses output does not match the full project license and third-party notices")
+	}
+
+	help := exec.Command(binary, "--help")
+	help.Dir = command.Dir
+	help.Env = []string{}
+	output, err = help.CombinedOutput()
+	if err != nil {
+		t.Fatalf("store-cli --help: %v\n%s", err, output)
+	}
+	if !bytes.Contains(output, []byte("licenses")) {
+		t.Fatal("help does not list the licenses command")
+	}
 }

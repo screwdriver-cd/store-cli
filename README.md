@@ -17,6 +17,7 @@ COMMANDS:
      get      Get a new item from the store
      set      Put a new item to the store
      remove   Remove an existing item from the store
+     licenses Show the project license and third-party notices
      help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
@@ -29,6 +30,12 @@ GLOBAL OPTIONS:
 COPYRIGHT:
    (c) 2018 Yahoo Inc.
 ```
+
+## Licenses
+
+Run `store-cli licenses` to print the project license and third-party notices for copied code.
+The contents of [LICENSE](LICENSE) and [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)
+are embedded in the executable, so no external files, network access, or authentication are required.
 
 ## Build cache
 
