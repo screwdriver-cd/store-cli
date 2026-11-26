@@ -4,9 +4,6 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"fmt"
-	"github.com/klauspost/compress/zstd"
-	"go.uber.org/multierr"
-	"golang.org/x/sys/unix"
 	"io"
 	"os"
 	"path"
@@ -14,6 +11,10 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/klauspost/compress/zstd"
+	"go.uber.org/multierr"
+	"golang.org/x/sys/unix"
 
 	"github.com/screwdriver-cd/store-cli/logger"
 )
@@ -324,7 +325,7 @@ func Compress(src, dst string, files []*FileInfo) error {
 			} else {
 				file, err = os.Open(f.Path)
 				if err != nil {
-					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("ignoring file %q: %v", f, err))
+					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("ignoring file %v: %v", f, err))
 					continue
 				}
 				err = writeHeader(tw, fInfo, f.Path, src)
@@ -335,7 +336,7 @@ func Compress(src, dst string, files []*FileInfo) error {
 				}
 				if _, err = io.Copy(tw, file); err != nil {
 					file.Close()
-					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error copying file %q to tar: %v", f, err))
+					aggregatedErr = multierr.Append(aggregatedErr, fmt.Errorf("error copying file %v to tar: %v", f, err))
 					continue
 				}
 				file.Close()
